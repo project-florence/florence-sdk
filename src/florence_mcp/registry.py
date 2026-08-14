@@ -38,6 +38,7 @@ GROUPS: tuple[str, ...] = (
     "bots",
     "export",
     "misc",
+    "helpers",
 )
 
 
@@ -628,6 +629,54 @@ TOOLS: tuple[ToolSpec, ...] = (
         "misc_announcement",
         "misc",
         "Tek duyuru (JWT).",
+    ),
+    # ---- helpers (6) — semantik kompozitler (helpers-design.md Bölüm 2/4.3) --
+    # Kompozit tool'lar: endpoint'lerin ustune biner; tek niyet = tek cagri.
+    # Bos/kisa sonuc disiplini: 0 haber -> bos liste (hata DEGIL); kismi
+    # hata -> ilgili alanda hata kodu, paket doner. Hepsi salt-okuma.
+    _spec(
+        "helper_news_digest",
+        "helpers",
+        "Ticker'in ilk N haberinin icerikli ozeti. 1 backend + N harici HTTP "
+        "istegi yapar (news 10/dk rate limiti; haber yoksa bos liste doner, "
+        "hata degil). fetch_content=False ile icerik cekimi atlanir.",
+    ),
+    _spec(
+        "helper_fetch_article",
+        "helpers",
+        "URL'deki makaleyi duz metin olarak ceker — SSRF korumali (sema "
+        "allowlist + localhost/ozel ag engeli + her redirect atlamasinda "
+        "yeniden dogrulama). 404/JS-render sonuc nesnesidir, hata degil.",
+    ),
+    _spec(
+        "helper_ticker_briefing",
+        "helpers",
+        "Ticker tek bakista: fiyat + sirket profili + trend (sparkline) + son "
+        "haberler. 4 backend cagrisi; eksik parcalar null doner, paket asla "
+        "dusmez. 'X hissesi nasil?' sorusunun karsiligi.",
+    ),
+    _spec(
+        "helper_market_pulse",
+        "helpers",
+        "Piyasa ne durumda: acik/kapali + kazananlar + kaybedenler + hacim "
+        "liderleri + populerler. 5 backend cagrisi, TAMAMI public (kimlik "
+        "gerekmez). Piyasa kapaliysa listeler yine doner.",
+    ),
+    _spec(
+        "helper_portfolio_health",
+        "helpers",
+        "Portfoy sagligi ozeti: deger, kar/zarar, en iyi/en kotu hisseler, "
+        "risk (volatility/drawdown/sharpe), XU100 benchmark, cesitlendirme. "
+        "5 backend cagrisi (JWT gerekir). Tek analiz ucu basarisizsa alan "
+        "null olur; portfoy yoksa hata.",
+    ),
+    _spec(
+        "helper_macro_briefing",
+        "helpers",
+        "Makro manzara: doviz kurlari + altin fiyatlari + FRED makro "
+        "serileri. 3 backend cagrisi (JWT gerekir). Backend string/Turk "
+        "virgullu degerleri float'a normalize eder. Seri yoksa ilgili alan "
+        "{} doner.",
     ),
 )
 

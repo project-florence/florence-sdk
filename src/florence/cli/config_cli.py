@@ -29,12 +29,27 @@ __all__ = [
 ]
 
 #: ``fl config set`` ile degistirilebilen anahtarlar.
-ALLOWED_KEYS = frozenset({"api_url", "default_output"})
+ALLOWED_KEYS = frozenset(
+    {
+        "api_url",
+        "default_output",
+        # TUI ayarlari (docs/tui-design.md §6.1) — PART 1.
+        "tui_refresh_seconds",
+        "tui_default_period",
+    }
+)
 
 #: CLI tarafindan otomatik yazilan anahtarlar (kullanici set edemez).
 AUTO_KEYS = frozenset({"last_username", "last_type"})
 
 DEFAULT_OUTPUTS = frozenset({"table", "json"})
+
+#: TUI detay grafigi period'lari (tui-default-period: 1mo|3mo|6mo|1y).
+TUI_DEFAULT_PERIODS = frozenset({"1mo", "3mo", "6mo", "1y"})
+
+#: tui_refresh_seconds kabul araligi (disi clamp — tasarim §6.1).
+TUI_REFRESH_MIN = 10
+TUI_REFRESH_MAX = 600
 
 
 def default_config_path() -> Path:
@@ -106,6 +121,19 @@ class CliConfig:
             )
         if key == "api_url" and not value.startswith(("http://", "https://")):
             raise typer.UsageError(f"api_url 'http(s)://' ile başlamalı: {value}")
+        if key == "tui_refresh_seconds":
+            try:
+                n = int(value)
+            except ValueError:
+                raise typer.UsageError(
+                    f"tui_refresh_seconds tam sayı olmalı: {value}"
+                ) from None
+            # 10-600 arasi kabul; disi clamp (tasarim §6.1).
+            value = str(max(TUI_REFRESH_MIN, min(TUI_REFRESH_MAX, n)))
+        elif key == "tui_default_period" and value not in TUI_DEFAULT_PERIODS:
+            raise typer.UsageError(
+                f"tui_default_period değeri '{value}' geçersiz; 1mo|3mo|6mo|1y olmalı"
+            )
         self._data[key] = value
         self._save()
 

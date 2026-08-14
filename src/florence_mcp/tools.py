@@ -26,6 +26,15 @@ from typing import Any
 
 import httpx
 
+from florence.helpers import (
+    fetch_article,
+    macro_briefing,
+    market_pulse,
+    news_digest,
+    portfolio_health,
+    ticker_briefing,
+)
+
 from .auth import AuthContext
 from .config import get_report_download_timeout, get_report_timeout
 from .errors import ToolError, to_tool_error
@@ -628,6 +637,50 @@ class ToolHandlers:
     @tool_handler
     def misc_announcement(self, announcement_id: int):
         return json_result(_jsonable(self.client.misc.announcement(announcement_id)))
+
+    # ------------------------------------------------------------------
+    # Helpers (6) — semantik kompozitler (helpers-design.md Bolum 4.3).
+    # Ince adaptorler: is mantigi florence.helpers cekirdeginde yasar.
+    # ------------------------------------------------------------------
+    @tool_handler
+    def helper_news_digest(self, ticker: str, amount: int = 5, fetch_content: bool = True):
+        """Haber ozeti + icerik: 1 backend + N harici HTTP istegi (news 10/dk)."""
+        return json_result(
+            _jsonable(news_digest(self.client, ticker, amount=amount, fetch_content=fetch_content))
+        )
+
+    @tool_handler
+    def helper_fetch_article(self, url: str, max_chars: int = 8000):
+        """URL -> duz metin (SSRF korumali; 404/JS-render sonuc nesnesidir)."""
+        return json_result(_jsonable(fetch_article(url, max_chars=max_chars)))
+
+    @tool_handler
+    def helper_ticker_briefing(self, ticker: str, news_amount: int = 3, trend_period: str = "1mo"):
+        """Ticker tek bakista: 4 backend cagrisi (fiyat+profil+trend+haber)."""
+        return json_result(
+            _jsonable(
+                ticker_briefing(self.client, ticker, news_amount=news_amount, trend_period=trend_period)
+            )
+        )
+
+    @tool_handler
+    def helper_market_pulse(self, limit: int = 5):
+        """Piyasa durumu: 5 public backend cagrisi (kimlik gerekmez)."""
+        return json_result(_jsonable(market_pulse(self.client, limit=limit)))
+
+    @tool_handler
+    def helper_portfolio_health(self, portfolio_id: str, risk_period: str = "1y"):
+        """Portfoy sagligi: 5 backend cagrisi (JWT gerekir)."""
+        return json_result(
+            _jsonable(portfolio_health(self.client, portfolio_id, risk_period=risk_period))
+        )
+
+    @tool_handler
+    def helper_macro_briefing(self, symbols: str = "USD,EUR,GBP", macro_series: str | None = None):
+        """Makro manzara: 3 backend cagrisi (JWT gerekir)."""
+        return json_result(
+            _jsonable(macro_briefing(self.client, symbols=symbols, macro_series=macro_series))
+        )
 
 
 def _spec(name: str) -> ToolSpec:

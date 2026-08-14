@@ -36,6 +36,20 @@ from .errors import (
     NetworkError,
     RateLimitError,
 )
+from .helpers import (  # semantik kompozit yardimci tool'lar (helpers-design.md)
+    fetch_article,
+    fetch_article_async,
+    macro_briefing,
+    macro_briefing_async,
+    market_pulse,
+    market_pulse_async,
+    news_digest,
+    news_digest_async,
+    portfolio_health,
+    portfolio_health_async,
+    ticker_briefing,
+    ticker_briefing_async,
+)
 from .models import (
     BotRecord,
     CreditBalance,
@@ -67,5 +81,17 @@ __all__ = [
     "TokenPair",
     "TokenStore",
     "UserProfile",
+    "fetch_article",
+    "fetch_article_async",
+    "macro_briefing",
+    "macro_briefing_async",
+    "market_pulse",
+    "market_pulse_async",
+    "news_digest",
+    "news_digest_async",
+    "portfolio_health",
+    "portfolio_health_async",
+    "ticker_briefing",
+    "ticker_briefing_async",
     "__version__",
 ]

@@ -68,12 +68,13 @@ def _main_callback(
 
 
 # ----------------------------------------------------------------------
-# Grup kaydi (10 grup + price kisa yolu)
+# Grup kaydi (11 grup + price kisa yolu)
 # ----------------------------------------------------------------------
 from . import (  # noqa: E402  (dairesel bagimliligi onlemek icin sonra import)
     commands_analysis,
     commands_auth,
     commands_export,
+    commands_helpers,
     commands_market,
     commands_misc,
     commands_portfolio,
@@ -102,6 +103,11 @@ app.add_typer(commands_export.bots_app, name="bots", help="Bot hesapları.")
 app.add_typer(commands_export.export_app, name="export", help="Veri dışa aktarım (yıllık).")
 app.add_typer(commands_misc.misc_app, name="misc", help="Halka arz, yasal ve meta bilgiler.")
 app.add_typer(commands_misc.config_app, name="config", help="CLI yerel ayarları.")
+app.add_typer(
+    commands_helpers.helper_app,
+    name="helper",
+    help="Semantik yardımcı kompozitler (tek niyet = tek komut).",
+)
 # Duzlestirilmis analiz gruplari (karar 2026-08-14): fl report <ticker> =
 # generate, fl simulate <ticker> --days N = run (alt komutlariyla birlikte).
 app.add_typer(

@@ -24,6 +24,11 @@ from florence.errors import (
     RateLimitError,
 )
 
+try:  # helpers kurulu degilse bile MCP ayakta kalir (savunmacı import)
+    from florence.helpers._http import ArticleFetchError
+except ImportError:  # pragma: no cover
+    ArticleFetchError = NetworkError  # type: ignore[misc,assignment]
+
 __all__ = ["ToolError", "to_tool_error"]
 
 
@@ -33,6 +38,11 @@ class ToolError(Exception):
 
 def to_tool_error(exc: BaseException) -> ToolError:
     """Bir SDK/beklenmeyen hatayi LLM dostu ``ToolError`` mesajina cevirir."""
+    if isinstance(exc, ArticleFetchError):
+        return ToolError(
+            f"Ağ hatası (harici içerik çekimi): {exc} | "
+            "URL erişilebilir mi? (SSRF korumasi: localhost/özel ağlar engelli)."
+        )
     if isinstance(exc, AuthError):
         code = exc.code or "not_authenticated"
         detail = _detail_text(exc.detail)

@@ -32,6 +32,7 @@ dependencies = [
     "typer>=0.12",
     "rich>=13.7",
     "cryptography>=42",
+    "textual>=0.60",
 ]
 
 [project.urls]
@@ -43,6 +44,11 @@ Documentation = "https://github.com/project-florence/florence-sdk/tree/main/docs
 florence-mcp = "florence_mcp.server:main"
 florence = "florence.cli.app:main"
 fl = "florence.cli.app:main"
+
+# Opsiyonel extra: haber icerik cekiminde yuksek kaliteli metin cikarimi.
+# Kurulmazsa helpers stdlib html.parser fallback'i ile calisir (helpers-design.md Bolum 3.2).
+[project.optional-dependencies]
+news = ["trafilatura>=1.8"]
 
 [dependency-groups]
 dev = [
@@ -63,7 +69,7 @@ testpaths = ["tests"]
 addopts = "-q"
 
 [tool.ruff]
-line-length = 100
+line-length = 120  # uzun Turkce docstring'ler icin
 target-version = "py312"
 
 [tool.ruff.lint]

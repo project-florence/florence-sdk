@@ -391,7 +391,7 @@ def test_server_list_tools_smoke():
     tools = _run(_list())
     names = {tool.name for tool in tools}
     assert len(tools) >= 80
-    assert len(tools) == len(TOOLS) == 92
+    assert len(tools) == len(TOOLS) == 98
     assert names == {spec.name for spec in TOOLS}
     # Temsilci isimler (CLI uyumlu, Bölüm 2.6).
     for expected in (
@@ -401,6 +401,8 @@ def test_server_list_tools_smoke():
         "export_status",
         "bots_create",
         "auth_status",
+        "helper_news_digest",
+        "helper_market_pulse",
     ):
         assert expected in names
 
@@ -417,7 +419,7 @@ def test_server_disabled_groups(monkeypatch):
     tools = _run(_list())
     names = {tool.name for tool in tools}
     assert not any(n.startswith("export_") for n in names)
-    assert len(names) == len(enabled_specs({"export"})) == 87
+    assert len(names) == len(enabled_specs({"export"})) == 93
 
 
 def test_server_instructions_mention_rate_limits():
@@ -433,12 +435,25 @@ def test_server_instructions_mention_rate_limits():
 # ---------------------------------------------------------------------------
 
 
-def test_registry_has_92_tools_and_invariants():
+def test_registry_has_98_tools_and_invariants():
     names = [spec.name for spec in TOOLS]
-    assert len(names) == 92
-    assert len(set(names)) == 92  # benzersiz
+    assert len(names) == 98
+    assert len(set(names)) == 98  # benzersiz
     for spec in TOOLS:
         assert spec.group in GROUPS
+    # Helper tool'lari "helpers" grubunda ve salt-okuma.
+    helper_names = [spec.name for spec in TOOLS if spec.group == "helpers"]
+    assert helper_names == [
+        "helper_news_digest",
+        "helper_fetch_article",
+        "helper_ticker_briefing",
+        "helper_market_pulse",
+        "helper_portfolio_health",
+        "helper_macro_briefing",
+    ]
+    for spec in TOOLS:
+        if spec.group == "helpers":
+            assert not spec.write and not spec.danger and not spec.credit and not spec.confirm
     assert CONFIRM_REQUIRED == frozenset(
         {"auth_delete_account", "portfolio_delete", "portfolio_undo_transaction", "bots_delete"}
     )
