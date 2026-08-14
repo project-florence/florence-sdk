@@ -78,6 +78,7 @@ from . import (  # noqa: E402  (dairesel bagimliligi onlemek icin sonra import)
     commands_market,
     commands_misc,
     commands_portfolio,
+    commands_tui,
 )
 
 app.add_typer(commands_auth.auth_app, name="auth", help="Kimlik doğrulama ve hesap yönetimi.")
@@ -120,6 +121,8 @@ app.add_typer(
     name="simulate",
     help="Simülasyonlar (fl simulate <ticker> --days N = run).",
 )
+# ``fl tui`` — isimsiz add_typer: komut ust seviyeye eklenir (K5: sifir arguman).
+app.add_typer(commands_tui.tui_app)
 
 
 @app.command("download")

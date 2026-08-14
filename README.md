@@ -144,7 +144,7 @@ fl simulate THYAO --days 30        # simülasyon
 fl portfolio list                  # portföyler
 fl export fetch 2025               # yıllık veri (sipariş → bekle → indir)
 fl download ASELS 3mo              # hisse mumlarını CSV'ye indir
-fl tui                             # TUI (yakında)
+fl tui                             # tam ekran TUI (pano, izleme, detay)
 
 # Makine/AI dostu çıktı:
 fl price THYAO --json

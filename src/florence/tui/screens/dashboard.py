@@ -145,7 +145,7 @@ class DashboardScreen(Screen[None]):
         Binding(KEY_GAINERS, "show_gainers", "Yükselenler"),
         Binding(KEY_LOSERS, "show_losers", "Düşenler"),
         Binding(KEY_TOGGLE_MOVERS, "toggle_movers", "Sekme", priority=True),
-        Binding(KEY_OPEN_DETAIL, "open_detail", "Detay"),
+        Binding(KEY_OPEN_DETAIL, "open_detail", "Detay", priority=True),
     ]
 
     DEFAULT_CSS = """

@@ -1,10 +1,10 @@
 """florence-tui: ``fl tui`` terminal arayuzu (Textual).
 
-PART 1 kapsami: pano (dashboard) ekrani + polling altyapisi
-(``data.py``: TTL cache / 429 interval uzatmasi / K4 next_open_at planlama).
-
-PART 2 (ayri subagent): watchlist + detay ekranlari ve ``fl tui`` CLI
-komutu — bu paketin disinda (``cli/``) eklenir.
+Kapsam: pano (dashboard), izleme listesi (watchlist — favoriler + canli
+fiyat + sparkline) ve ticker detay/grafik (detail — 1/3/6/y period +
+haberler) ekranlari + polling altyapisi (``data.py``: TTL cache / 429
+interval uzatmasi / K4 next_open_at planlama). ``fl tui`` CLI komutu
+``cli/commands_tui.py`` icindedir.
 """
 
 from .app import FlorenceTUI, main

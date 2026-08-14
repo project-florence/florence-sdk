@@ -42,6 +42,26 @@ MOCK_GOLD = [
 ]
 MOCK_CURRENCY = {"USD": {"buying": "42,10"}, "EUR": {"buying": "45,30"}}
 
+#: PART 2 mock'lari (docs/tui-design.md Ek A sozlesmeleri birebir).
+MOCK_FAVORITES = ["THYAO", "ASELS"]
+MOCK_COMPANY_INFO = {
+    "THYAO": {"ticker": "THYAO", "longName": "Türk Hava Yolları", "sector": "Havacılık"},
+    "ASELS": {"ticker": "ASELS", "longName": "Aselsan Elektronik", "sector": "Savunma"},
+}
+MOCK_PRICES = {
+    "THYAO": {"ticker": "THYAO", "price": 313.4, "change_pct": 0.93, "market_status": "open"},
+    "ASELS": {"ticker": "ASELS", "price": 1234.5, "change_pct": -1.2, "market_status": "open"},
+}
+MOCK_HISTORY = [
+    {"ts": "2026-07-01T00:00:00+00:00", "open": 300.0, "close": 310.0, "volume": 1000},
+    {"ts": "2026-07-02T00:00:00+00:00", "open": 310.0, "close": 313.4, "volume": 1200},
+    {"ts": "2026-07-03T00:00:00+00:00", "open": 313.4, "close": 312.0, "volume": 900},
+]
+MOCK_NEWS = [
+    {"title": "THYAO haberi", "url": "https://example.com/thyao-1"},
+    {"title": "THYAO ikinci haber", "url": "https://example.com/thyao-2"},
+]
+
 
 def make_handler(
     *,
@@ -54,18 +74,29 @@ def make_handler(
     currency: dict[str, Any] | None = None,
     rate_limit_path: str | None = None,
     retry_after: str = "30",
+    favorites: list[str] | None = None,
+    prices: dict[str, dict[str, Any]] | None = None,
+    price_fail_tickers: set[str] | None = None,
+    company_info: dict[str, dict[str, Any]] | None = None,
+    history: list[dict[str, Any]] | None = None,
+    news: list[dict[str, Any]] | None = None,
 ) -> Callable[[httpx.Request], httpx.Response]:
     """Path'e gore mock yanit donduren httpx handler (tamamen offline).
 
     ``rate_limit_path`` verilirse o path 429 + Retry-After doner; diger
-    uclar normal. ``None`` listeler bos yanit anlamina gelir (boş durum
-    testleri icin), ``[]`` ise gercekten bos liste doner.
+    uclar normal. ``None`` listeler bos yanit anlamina gelir (bos durum
+    testleri icin), ``[]`` ise gercekten bos liste doner. PART 2 uclari:
+    ``/favorites``, ``/price/current`` (ticker'a gore), ``/price/history/``,
+    ``/companies/info/``, ``/news/`` — ``price_fail_tickers`` icindeki
+    ticker'larin fiyati 500 doner (kismi hata toleransi testi).
     """
     status = (
         status_json
         if status_json is not None
         else (MOCK_STATUS_OPEN if status_open else MOCK_STATUS_CLOSED)
     )
+    price_map = MOCK_PRICES if prices is None else prices
+    info_map = MOCK_COMPANY_INFO if company_info is None else company_info
 
     def handler(request: httpx.Request) -> httpx.Response:
         path = request.url.path
@@ -89,12 +120,35 @@ def make_handler(
             else:
                 rows = []
             return httpx.Response(200, json=rows)
+        if "/companies/info/" in path:
+            ticker = path.rstrip("/").split("/")[-1]
+            entry = info_map.get(ticker)
+            if entry is None:
+                return httpx.Response(404, json={"detail": "unknown_ticker"})
+            return httpx.Response(200, json=entry)
         if path.endswith("/economy/gold-prices"):
             rows = MOCK_GOLD if gold is None else gold
             return httpx.Response(200, json=rows)
         if path.endswith("/economy/currency"):
             data = MOCK_CURRENCY if currency is None else currency
             return httpx.Response(200, json=data)
+        if path.endswith("/favorites"):
+            rows = MOCK_FAVORITES if favorites is None else favorites
+            return httpx.Response(200, json=rows)
+        if path.endswith("/price/current"):
+            ticker = request.url.params.get("ticker", "")
+            if price_fail_tickers and ticker in price_fail_tickers:
+                return httpx.Response(500, json={"detail": "error_internal"})
+            entry = price_map.get(ticker)
+            if entry is None:
+                return httpx.Response(404, json={"detail": "unknown_ticker"})
+            return httpx.Response(200, json=entry)
+        if "/price/history/" in path:
+            rows = MOCK_HISTORY if history is None else history
+            return httpx.Response(200, json=rows)
+        if "/news/" in path:
+            rows = MOCK_NEWS if news is None else news
+            return httpx.Response(200, json=rows)
         return httpx.Response(404, json={"detail": "unmocked"})
 
     return handler

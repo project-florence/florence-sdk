@@ -34,6 +34,8 @@ from ..errors import FlorenceError, RateLimitError
 from . import keys
 from .data import DataHub, error_message
 from .screens.dashboard import DashboardDataFailed, DashboardDataUpdated, DashboardScreen
+from .screens.detail import DetailDataFailed, DetailDataUpdated, DetailScreen
+from .screens.watchlist import WatchlistDataFailed, WatchlistDataUpdated, WatchlistScreen
 
 __all__ = ["FlorenceTUI", "HelpModal", "main"]
 
@@ -80,10 +82,10 @@ class HelpModal(ModalScreen[None]):
         lines = [
             "[b]fl tui — tuş haritası[/]",
             "",
-            "[b]q[/] Çıkış      [b]1[/] Pano      [b]2[/] İzleme (PART 2)",
+            "[b]q[/] Çıkış      [b]1[/] Pano      [b]2[/] İzleme listesi",
             "[b]r[/] Yenile     [b]h[/] Bu yardım",
             "[b]j[/]/[b]k[/] Satır  [b]enter[/] Detay  [b]g[/]/[b]l[/] Yükselen/Düşen",
-            "[b]1[/]/[b]3[/]/[b]6[/]/[b]y[/] Grafik dönemi (detay)",
+            "[b]1[/]/[b]3[/]/[b]6[/]/[b]y[/] Grafik dönemi (detay)  [b]esc[/] Geri",
             "",
             f"Sürüm: {__version__}",
             f"API: {self.app.data.base_url}",  # type: ignore[attr-defined]
@@ -95,7 +97,7 @@ class HelpModal(ModalScreen[None]):
 
 
 class FlorenceTUI(App[None]):
-    """``fl tui`` uygulamasi (PART 1: pano ekrani)."""
+    """``fl tui`` uygulamasi (pano + izleme listesi + detay/grafik)."""
 
     TITLE = "Florence · fl tui"
     SUB_TITLE = "BIST canlı özet"
@@ -114,8 +116,8 @@ class FlorenceTUI(App[None]):
         Binding(keys.KEY_HELP, "help", "Yardım"),
     ]
 
-    #: Ekran kaydi — PART 2 "watchlist" ekranini buraya ekler.
-    SCREENS = {"dashboard": DashboardScreen}
+    #: Ekran kaydi — watchlist switch ile acilir; detay push ile (K3).
+    SCREENS = {"dashboard": DashboardScreen, "watchlist": WatchlistScreen}
 
     def __init__(
         self,
@@ -199,7 +201,14 @@ class FlorenceTUI(App[None]):
                 snapshot = await self.data.fetch_dashboard()
                 screen.post_message(DashboardDataUpdated(snapshot))
                 self.data.register_success()
-            # PART 2: WatchlistScreen / DetailScreen kollari buraya eklenir.
+            elif isinstance(screen, WatchlistScreen):
+                snapshot = await self.data.fetch_watchlist()
+                screen.post_message(WatchlistDataUpdated(snapshot))
+                self.data.register_success()
+            elif isinstance(screen, DetailScreen):
+                snapshot = await self.data.fetch_detail(screen.ticker, screen.period)
+                screen.post_message(DetailDataUpdated(snapshot))
+                self.data.register_success()
         except RateLimitError as exc:
             self.data.register_rate_limit(exc.retry_after)
             self._post_failure(screen, "Rate limit", exc.retry_after)
@@ -213,6 +222,10 @@ class FlorenceTUI(App[None]):
     def _post_failure(self, screen: Any, message: str, retry_after: float | None) -> None:
         if isinstance(screen, DashboardScreen):
             screen.post_message(DashboardDataFailed(message, retry_after))
+        elif isinstance(screen, WatchlistScreen):
+            screen.post_message(WatchlistDataFailed(message, retry_after))
+        elif isinstance(screen, DetailScreen):
+            screen.post_message(DetailDataFailed(message, retry_after))
 
     def _schedule_next(self) -> None:
         """Sonraki tick'i DataHub'in planladigi gecikmeyle kurar (429/K4)."""
@@ -241,10 +254,14 @@ class FlorenceTUI(App[None]):
         self.push_screen(HelpModal())
 
     def open_detail(self, ticker: str) -> None:
-        """PART 2 kancasi: DetailScreen push burada baglanir."""
-        self.notify(f"{ticker} detayı PART 2'de eklenecek")
+        """Seçili ticker'in detay ekranini acar (push — geri donus ``esc``).
+
+        ``DetailScreen`` varsayilan period ile baslar; ``1/3/6/y`` tuslari
+        ekran icinde period degistirip aninda yeniden fetch eder.
+        """
+        self.push_screen(DetailScreen(ticker, period=self.default_period))
 
 
 def main() -> None:
-    """``fl tui`` giris noktasi (PART 2 CLI komutu bu fonksiyonu cagirir)."""
+    """``fl tui`` giris noktasi (CLI ``commands_tui`` bu fonksiyonu cagirir)."""
     FlorenceTUI().run()

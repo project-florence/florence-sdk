@@ -34,9 +34,13 @@ __all__ = [
     "DEFAULT_TTL",
     "DashboardSnapshot",
     "DataHub",
+    "DetailSnapshot",
+    "WatchlistRow",
+    "WatchlistSnapshot",
     "delta_style",
     "error_message",
     "gold_summary",
+    "market_status_text",
     "tr_delta",
     "tr_number",
 ]
@@ -110,6 +114,82 @@ class DashboardSnapshot:
     fetched_at: datetime
     errors: dict[str, str] = field(default_factory=dict)
     auth_sections: tuple[str, ...] = ()
+
+
+@dataclass
+class WatchlistRow:
+    """Watchlist tablosundaki tek satir (bir favori ticker)."""
+
+    ticker: str
+    price: float | None = None
+    change_pct: float | None = None
+    #: Sparkline icin ham ``close`` serisi (``price_history`` — 10dk cache).
+    close_values: list[float | None] = field(default_factory=list)
+
+
+@dataclass
+class WatchlistSnapshot:
+    """Bir poll tick'inin watchlist icin toplu sonucu.
+
+    ``favorites is None`` -> liste alinamadi (hata); ``favorites == []`` ->
+    gercekten bos liste (ekran 'Favoriniz yok' gosterir). Satirlar favori
+    sirasinda; tek ticker'in fiyati cekilemezse o satir ``price=None`` kalir
+    (kismi hata toleransi — tum liste dusmez).
+    """
+
+    market_status: dict[str, Any] | None
+    favorites: list[str] | None
+    rows: list[WatchlistRow]
+    fetched_at: datetime
+    errors: dict[str, str] = field(default_factory=dict)
+    auth_sections: tuple[str, ...] = ()
+
+
+@dataclass
+class DetailSnapshot:
+    """Bir poll tick'inin ticker detayi icin toplu sonucu.
+
+    Kismi hatalarda ilgili alan ``None`` olur (``errors`` mesaj tasir);
+    diger alanlar etkilenmez. ``news`` JWT ister: oturum yoksa veya oturum
+    suresi dolduysa ``auth_sections`` icinde ``"news"`` bulunur (ekran
+    giris onerisi gosterir).
+    """
+
+    ticker: str
+    period: str
+    market_status: dict[str, Any] | None
+    company_info: dict[str, Any] | None
+    current_price: dict[str, Any] | None
+    price_history: list[dict[str, Any]] | None
+    news: list[dict[str, Any]] | None
+    fetched_at: datetime
+    errors: dict[str, str] = field(default_factory=dict)
+    auth_sections: tuple[str, ...] = ()
+
+
+def market_status_text(status: dict[str, Any] | None) -> str:
+    """Piyasa durumu metni: ``Piyasa: AÇIK`` / ``Piyasa: KAPALI · 10:00'da açılacak``."""
+    if not isinstance(status, dict):
+        return "[grey]Piyasa durumu alınamadı[/]"
+    if status.get("holiday"):
+        state = "[yellow]TATİL[/]"
+    elif status.get("open"):
+        state = "[green]AÇIK[/]"
+    else:
+        state = "[red]KAPALI[/]"
+        nxt = status.get("next_open_at")
+        if nxt:
+            state += f" · {_format_open_time(nxt)}'da açılacak"
+    return f"Piyasa: {state}"
+
+
+def _format_open_time(raw: Any) -> str:
+    """ISO next_open_at -> yerel saat ('10:00'); gecersizse ham metin."""
+    try:
+        dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        return dt.astimezone().strftime("%H:%M")
+    except ValueError:
+        return str(raw)
 
 
 # ----------------------------------------------------------------------
@@ -383,6 +463,68 @@ class DataHub:
         result = data if isinstance(data, dict) else {}
         return self._set_cached("currency", result)
 
+    async def get_favorites(self) -> list[str] | None:
+        """``/favorites`` — favori ticker listesi (JWT; 60s TTL).
+
+        Yanit duz string listesi olabilecegi gibi ``{"favorites": [...]}``
+        biciminde de gelebilir (Ek A sozlesmesi listeyi esas alir; dict'e
+        tolerans).
+        """
+        cached = self._get_cached("favorites")
+        if cached is not self._CACHE_MISS:
+            return cached
+        data = await self._client.portfolio.favorites()
+        if isinstance(data, dict):
+            data = data.get("favorites", [])
+        rows = data if isinstance(data, list) else []
+        return self._set_cached("favorites", [str(t) for t in rows])
+
+    async def get_current_price(self, ticker: str) -> dict[str, Any] | None:
+        """``/price/current`` — anlik fiyat (public; 60s TTL)."""
+        key = f"current_price:{ticker}"
+        cached = self._get_cached(key)
+        if cached is not self._CACHE_MISS:
+            return cached
+        data = await self._client.market.current_price(ticker)
+        result = data if isinstance(data, dict) else {}
+        return self._set_cached(key, result)
+
+    async def get_company_info(self, ticker: str) -> dict[str, Any] | None:
+        """``/companies/info/{ticker}`` — sirket profili (public; 5dk TTL)."""
+        key = f"company_info:{ticker}"
+        cached = self._get_cached(key)
+        if cached is not self._CACHE_MISS:
+            return cached
+        data = await self._client.market.company_info(ticker)
+        result = data if isinstance(data, dict) else {}
+        return self._set_cached(key, result)
+
+    async def get_price_history(
+        self, ticker: str, period: str = "1mo", interval: str = "1d"
+    ) -> list[dict[str, Any]] | None:
+        """``/price/history/{ticker}`` (public; 10dk TTL — tasarim §4.5)."""
+        key = f"price_history:{ticker}:{period}:{interval}"
+        cached = self._get_cached(key)
+        if cached is not self._CACHE_MISS:
+            return cached
+        data = await self._client.market.price_history(ticker, period=period, interval=interval)
+        rows = data if isinstance(data, list) else []
+        return self._set_cached(key, rows)
+
+    async def get_news(self, ticker: str, amount: int = 5) -> list[dict[str, Any]] | None:
+        """``/news/{ticker}`` — haberler (JWT + news feature; 5dk TTL).
+
+        TTL 5dk, backend 10/dk limitinin cok altinda kalir (tasarim §4.4
+        news ozel kurali).
+        """
+        key = f"news:{ticker}:{amount}"
+        cached = self._get_cached(key)
+        if cached is not self._CACHE_MISS:
+            return cached
+        data = await self._client.market.news(ticker, amount=amount)
+        rows = data if isinstance(data, list) else []
+        return self._set_cached(key, rows)
+
     # ------------------------------------------------------------------
     # Pano toplu fetch'i (poll worker tek cagri yapar)
     # ------------------------------------------------------------------
@@ -433,14 +575,21 @@ class DataHub:
         section: str,
         coro: Awaitable[Any],
         errors: dict[str, str],
+        auth_sections: set[str] | None = None,
     ) -> Any:
-        """Tek bolumu guvenle ceker; hata mesajini ``errors``'a yazar."""
+        """Tek bolumu guvenle ceker; hata mesajini ``errors``'a yazar.
+
+        ``auth_sections`` verilirse AuthError (oturum suresi doldu) o
+        bolumu kumeye ekler — ekran bolumu gizleyip giris onerir.
+        """
         try:
             return await coro
         except RateLimitError:
             raise  # tum tick iptal — app uzatma/banner yonetir
         except AuthError:
             errors[section] = "Oturum süresi doldu — tekrar giriş yapın (fl auth login)"
+            if auth_sections is not None:
+                auth_sections.add(section)
             return None
         except FlorenceError as exc:
             errors[section] = error_message(exc)
@@ -448,6 +597,112 @@ class DataHub:
         except Exception as exc:  # pragma: no cover — beklenmeyen hata
             errors[section] = str(exc)
             return None
+
+    # ------------------------------------------------------------------
+    # Watchlist toplu fetch'i (poll worker tek cagri yapar)
+    # ------------------------------------------------------------------
+    async def fetch_watchlist(self) -> WatchlistSnapshot:
+        """Watchlist icin tek tick'te: status + favoriler + N x (fiyat + seri).
+
+        - Auth yoksa favori bolumu HIC istek atmaz: ``auth_sections``
+          icinde ``"favorites"`` (ekran 'fl auth login' uyarisi gosterir).
+        - Tek ticker'in fiyati/serisi cekilemezse o satir ``None`` alanlarla
+          kalir (ekran '—' basar), tum liste dusmez — kismi hata toleransi.
+        - ``RateLimitError`` YAYILIR — app interval uzatmasi ve banner icin
+          yakalar (tasarim §4.4).
+        """
+        errors: dict[str, str] = {}
+        auth_sections: set[str] = set()
+        status = await self.get_market_status()
+        if not self.is_authenticated():
+            auth_sections.add("favorites")
+            return WatchlistSnapshot(
+                market_status=status,
+                favorites=None,
+                rows=[],
+                fetched_at=self._clock(),
+                errors=errors,
+                auth_sections=("favorites",),
+            )
+        favorites = await self._fetch_section(
+            "favorites", self.get_favorites(), errors, auth_sections
+        )
+        tickers = favorites or []
+        rows: list[WatchlistRow] = []
+        for ticker in tickers:
+            row = WatchlistRow(ticker=ticker)
+            quote = await self._fetch_section(
+                f"price:{ticker}", self.get_current_price(ticker), errors
+            )
+            if isinstance(quote, dict):
+                row.price = quote.get("price")
+                row.change_pct = quote.get("change_pct")
+            history = await self._fetch_section(
+                f"history:{ticker}",
+                self.get_price_history(ticker, period="1mo", interval="1d"),
+                errors,
+            )
+            if isinstance(history, list):
+                row.close_values = [
+                    item.get("close") for item in history if isinstance(item, dict)
+                ]
+            rows.append(row)
+        return WatchlistSnapshot(
+            market_status=status,
+            favorites=tickers,
+            rows=rows,
+            fetched_at=self._clock(),
+            errors=errors,
+            auth_sections=tuple(sorted(auth_sections)),
+        )
+
+    # ------------------------------------------------------------------
+    # Detay toplu fetch'i (poll worker tek cagri yapar)
+    # ------------------------------------------------------------------
+    async def fetch_detail(self, ticker: str, period: str) -> DetailSnapshot:
+        """Ticker detayi: status + company_info + current_price + history + news.
+
+        - Kismi hatalar ilgili alani ``None`` yapar (``errors`` mesaj
+          tasir), diger alanlar etkilenmez.
+        - ``news`` JWT ister: oturum yoksa hic istek atilmaz ve
+          ``auth_sections`` icinde ``"news"`` bulunur; oturum suresi
+          dolduysa (AuthError) ayni sekilde gizlenir. ``RateLimitError``
+          yayilir (app yonetir).
+        """
+        errors: dict[str, str] = {}
+        auth_sections: set[str] = set()
+        authed = self.is_authenticated()
+        status = await self.get_market_status()
+        info = await self._fetch_section(
+            "company_info", self.get_company_info(ticker), errors
+        )
+        quote = await self._fetch_section(
+            "current_price", self.get_current_price(ticker), errors
+        )
+        history = await self._fetch_section(
+            "price_history",
+            self.get_price_history(ticker, period=period, interval="1d"),
+            errors,
+        )
+        news: list[dict[str, Any]] | None = None
+        if not authed:
+            auth_sections.add("news")
+        else:
+            news = await self._fetch_section(
+                "news", self.get_news(ticker, amount=5), errors, auth_sections
+            )
+        return DetailSnapshot(
+            ticker=ticker,
+            period=period,
+            market_status=status,
+            company_info=info,
+            current_price=quote,
+            price_history=history,
+            news=news,
+            fetched_at=self._clock(),
+            errors=errors,
+            auth_sections=tuple(sorted(auth_sections)),
+        )
 
 
 def _parse_dt(value: Any) -> datetime | None:

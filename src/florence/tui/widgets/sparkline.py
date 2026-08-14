@@ -19,12 +19,17 @@ from textual.app import ComposeResult
 from textual.widgets import Sparkline, Static
 
 __all__ = [
+    "SPARK_CHARS",
     "SparklineChart",
     "downsample",
     "normalize",
     "period_return",
+    "spark_text",
     "sparkline_color",
 ]
+
+#: Mini sparkline karakter seti (8 seviye blok — tasarim §5.1, K2).
+SPARK_CHARS = "▁▂▃▄▅▆▇█"
 
 
 def normalize(values: Sequence[float | None]) -> list[float]:
@@ -64,6 +69,23 @@ def sparkline_color(return_value: float | None) -> str:
     if return_value is None or return_value == 0:
         return "$foreground"
     return "$success" if return_value > 0 else "$error"
+
+
+def spark_text(values: Sequence[float | None], width: int = 12) -> str:
+    """DataTable hucresi icin mini sparkline metni (blok karakter).
+
+    ``normalize`` + ``downsample`` ile seriyi ``width`` sutuna ornekler ve
+    her noktayi 8 seviyeli blok karaktere cevirir (tasarim §5.2). Bos
+    seride ``'—'`` doner.
+    """
+    norm = normalize(values)
+    if not norm:
+        return "—"
+    sampled = downsample(norm, max_points=width)
+    return "".join(
+        SPARK_CHARS[min(int(v * len(SPARK_CHARS)), len(SPARK_CHARS) - 1)]
+        for v in sampled
+    )
 
 
 class SparklineChart(Static):
