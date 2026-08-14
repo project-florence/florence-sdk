@@ -4,7 +4,25 @@ version = "0.1.0"
 description = "Florence API SDK — Python wrapper (sync+async), CLI, AI tools, MCP server and agents for the Florence platform"
 readme = "README.md"
 requires-python = ">=3.12"
-license = { text = "AGPL-3.0-or-later" }
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Florence" },
+]
+keywords = ["florence", "bist", "finance", "sdk", "cli", "mcp", "trading", "investing"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 dependencies = [
     "httpx>=0.27",
     "pydantic>=2.7",
@@ -15,6 +33,11 @@ dependencies = [
     "rich>=13.7",
     "cryptography>=42",
 ]
+
+[project.urls]
+Repository = "https://github.com/project-florence/florence-sdk"
+Issues = "https://github.com/project-florence/florence-sdk/issues"
+Documentation = "https://github.com/project-florence/florence-sdk/tree/main/docs"
 
 [project.scripts]
 florence-mcp = "florence_mcp.server:main"
