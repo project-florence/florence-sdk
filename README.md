@@ -94,3 +94,25 @@ except FlorenceAPIError as e:    # diğer 4xx/5xx — e.code i18n hata kodu
 except NetworkError as e:        # bağlantı/zaman aşımı
     print(f"network: {e}")
 ```
+
+## CLI (`fl` / `florence`)
+
+```bash
+fl auth login <kullanici_adi>      # kalıcı oturum (keyring/şifreli dosya)
+fl auth status                     # kim olarak bağlı
+fl price THYAO                     # güncel fiyat
+fl price history ASELS 3mo 5m      # konumsal period + interval
+fl market summary --sort gainers   # günün hareketleri
+fl report ASELS                    # hızlı rapor (default quick; --deep ile derin)
+fl simulate THYAO --days 30        # simülasyon
+fl portfolio list                  # portföyler
+fl export fetch 2025               # yıllık veri (sipariş → bekle → indir)
+fl download ASELS 3mo              # hisse mumlarını CSV'ye indir
+fl tui                             # TUI (yakında)
+
+# Makine/AI dostu çıktı:
+fl price THYAO --json
+```
+
+Tüm komutlar `--json` destekler; çıktı kuralı: stdout = veri, stderr = hata,
+exit kodları 0/1/2. Detaylı tasarım: `docs/cli-design.md`.
