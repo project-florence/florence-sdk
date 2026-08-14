@@ -18,6 +18,42 @@ Detaylı plan: `.hermes/plans/2026-08-14_144500-florence-sdk.md` (workspace)
 
 ## Kurulum / Install
 
+### Hızlı kurulum (Linux/macOS) — `install.sh`
+
+Paket henüz PyPI'da değil; tek komutla repo'dan kurulum (Linux/macOS; Windows desteklenmez — WSL2 veya Docker önerilir):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/project-florence/florence-sdk/main/install.sh | bash
+```
+
+Script şunları yapar:
+
+- Paket yöneticisini algılar: `apt` / `dnf` / `pacman` / `zypper` / `apk`; macOS: `brew`
+- Python ≥ 3.12 yoksa sistem genelinde kurar (apt: `python3.12`, Ubuntu'da deadsnakes PPA opsiyonu; brew: `python@3.12`)
+- `uv` yoksa kurar (astral.sh standalone kurucu)
+- Paketi öncelik sırasıyla kurar: `uv tool install` → `pipx` → `pip --user`
+- `fl` / `florence` binary yolunu `~/.bashrc` / `~/.zshrc` / fish `config.fish`'e **idempotent** ekler (tekrar çalıştırmak çift satır oluşturmaz)
+- Başarıda `fl --version` ile doğrular ve FLORENCE banner'ı basar
+
+Seçenekler:
+
+| Bayrak | Açıklama |
+| --- | --- |
+| `--dry-run`, `--check` | Hiçbir şey değiştirmez; yapılacakları gösterir |
+| `--uninstall` | PATH satırlarını ve kurulu paketi kaldırır |
+| `--source <yol\|url>` | Yerel dizin veya git URL (varsayılan: GitHub repo) |
+| `-y`, `--yes` | Onay sorusu sormadan devam eder |
+
+Örnekler:
+
+```bash
+bash install.sh --dry-run                              # planı gör, değişiklik yok
+bash install.sh --source /path/to/florence-sdk         # yerel repo'dan kur
+bash install.sh --uninstall                            # kaldır
+```
+
+### Geliştirici kurulumu
+
 ```bash
 uv sync           # geliştirme ortamı (veya: pip install -e .)
 ```
