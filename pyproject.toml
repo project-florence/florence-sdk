@@ -35,3 +35,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# Test mock'lari uzun JSON satirlari icerir; satir uzunlugu testlerde aranmaz.
+"tests/*" = ["E501"]
