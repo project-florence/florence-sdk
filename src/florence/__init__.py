@@ -26,7 +26,7 @@ Kapsam disi (bilincli): CLI, AI/agent katmani, MCP server, mail istemcisi —
 bunlar ilerleyen fazlarda eklenir (bkz. plan). GIT commit/push bu gorevde yapilmadi.
 """
 
-from .auth import AuthManager, KeyringTokenStore, MemoryTokenStore, TokenStore
+from .auth import AuthManager, FileTokenStore, KeyringTokenStore, MemoryTokenStore, TokenStore
 from .client import AsyncFlorenceClient, FlorenceClient
 from .config import API_PREFIX, DEFAULT_API_URL, DEFAULT_TIMEOUTS
 from .errors import (
@@ -56,6 +56,7 @@ __all__ = [
     "DEFAULT_API_URL",
     "DEFAULT_TIMEOUTS",
     "ExportRecord",
+    "FileTokenStore",
     "FlorenceAPIError",
     "FlorenceClient",
     "FlorenceError",

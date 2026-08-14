@@ -26,22 +26,22 @@ class MiscResource(BaseResource):
     """GET /ipos/upcoming — yaklasan halka arzlar (public; ``?after=`` ISO)."""
 
     def ipos_upcoming(self, after: str | None = None) -> Any:
-        return self._request("GET", "/ipos/upcoming", params=self._after(after), auth=False)
+        return self._request("GET", "/ipos/upcoming", params=self._after(after))
 
     """GET /ipos/draft — taslak halka arzlar (public)."""
 
     def ipos_draft(self, after: str | None = None) -> Any:
-        return self._request("GET", "/ipos/draft", params=self._after(after), auth=False)
+        return self._request("GET", "/ipos/draft", params=self._after(after))
 
     """GET /ipos/active — aktif halka arzlar (public)."""
 
     def ipos_active(self, after: str | None = None) -> Any:
-        return self._request("GET", "/ipos/active", params=self._after(after), auth=False)
+        return self._request("GET", "/ipos/active", params=self._after(after))
 
     """GET /ipos/{slug} — halka arz detayi (public; yoksa 404)."""
 
     def ipo_detail(self, slug: str) -> Any:
-        return self._request("GET", f"/ipos/{slug}", auth=False)
+        return self._request("GET", f"/ipos/{slug}")
 
     @staticmethod
     def _after(after: str | None) -> dict[str, str]:

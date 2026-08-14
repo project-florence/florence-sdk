@@ -1,6 +1,11 @@
 """Piyasa verisi endpoint'leri: BIST sirketleri, fiyat, haber, durum, istatistik.
 
 Parametre adlari ve default'lari openapi.json'dan birebir alinmistir.
+
+NOT (canli backend dogrulamasi 2026-08-14): backend middleware'i /api/v1'in
+tamamini korur — yalnizca PUBLIC_PATHS allowlist'indeki uclar auth'suz calisir
+(market/status, auth/*, legal, about, version, contact, maintenance,
+contributors, export/download). Diger tum market uclari gecerli token ister.
 """
 
 from __future__ import annotations
@@ -25,7 +30,6 @@ class MarketResource(BaseResource):
             "GET",
             "/bist/companies",
             params={"sort": sort, "offset": offset, "limit": limit},
-            auth=False,
         )
 
     """GET /bist/tickers — BIST ticker listesi (public)."""
@@ -40,7 +44,6 @@ class MarketResource(BaseResource):
             "GET",
             "/bist/tickers",
             params={"sort": sort, "offset": offset, "limit": limit},
-            auth=False,
         )
 
     """GET /companies/search — sirket ara (public, ``?query=``, alias destekli)."""
@@ -50,18 +53,17 @@ class MarketResource(BaseResource):
             "GET",
             "/companies/search",
             params={"query": query},
-            auth=False,
         )
 
     """GET /companies/info/{ticker} — yapilandirilmis sirket profili (public)."""
 
     def company_info(self, ticker: str) -> Any:
-        return self._request("GET", f"/companies/info/{ticker}", auth=False)
+        return self._request("GET", f"/companies/info/{ticker}")
 
     """GET /companies/info/{ticker}/md — markdown sirket profili (public)."""
 
     def company_info_md(self, ticker: str) -> Any:
-        return self._request("GET", f"/companies/info/{ticker}/md", auth=False)
+        return self._request("GET", f"/companies/info/{ticker}/md")
 
     """GET /companies/summary — sirket ozet tablosu (public).
 
@@ -79,7 +81,7 @@ class MarketResource(BaseResource):
         params: dict[str, Any] = {"limit": limit, "offset": offset, "sort": sort}
         if tickers is not None:
             params["tickers"] = tickers
-        return self._request("GET", "/companies/summary", params=params, auth=False)
+        return self._request("GET", "/companies/summary", params=params)
 
     """GET /news/{ticker} — hisse haberleri (JWT + news feature; 10/dk)."""
 
@@ -100,7 +102,6 @@ class MarketResource(BaseResource):
             "GET",
             "/price/current",
             params={"ticker": ticker, "interval": interval},
-            auth=False,
         )
 
     """GET /price/history/{ticker} — fiyat gecmisi (public).
@@ -113,7 +114,6 @@ class MarketResource(BaseResource):
             "GET",
             f"/price/history/{ticker}",
             params={"period": period, "interval": interval},
-            auth=False,
         )
 
     """GET /market/status — piyasa durumu (public; 60s cache).
@@ -127,9 +127,9 @@ class MarketResource(BaseResource):
     """GET /stats/top — populer ticker'lar (public)."""
 
     def stats_top(self, limit: int = 50) -> Any:
-        return self._request("GET", "/stats/top", params={"limit": limit}, auth=False)
+        return self._request("GET", "/stats/top", params={"limit": limit})
 
     """GET /stats/{ticker} — ticker bazli sayaclar (public)."""
 
     def stats(self, ticker: str) -> Any:
-        return self._request("GET", f"/stats/{ticker}", auth=False)
+        return self._request("GET", f"/stats/{ticker}")

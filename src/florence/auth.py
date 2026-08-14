@@ -31,9 +31,11 @@ from typing import Any, Protocol
 from .config import API_PREFIX
 from .errors import AuthError
 from .models import TokenPair
+from .store import FileTokenStore
 
 __all__ = [
     "AuthManager",
+    "FileTokenStore",
     "KeyringTokenStore",
     "MemoryTokenStore",
     "TokenStore",
@@ -44,6 +46,7 @@ logger = logging.getLogger(__name__)
 #: keyring icindeki kayit anahtarlari (servis adi: config.KEYRING_SERVICE)
 _ACCESS_KEY = "access_token"
 _REFRESH_KEY = "refresh_token"
+_USERNAME_KEY = "username"
 
 
 def _bot_password_key(username: str) -> str:
@@ -57,20 +60,22 @@ class TokenStore(Protocol):
     def get_refresh_token(self) -> str | None: ...
     def set_tokens(self, access_token: str, refresh_token: str) -> None: ...
     def clear(self) -> None: ...
+    def get_username(self) -> str | None: ...
+    def set_username(self, username: str) -> None: ...
     def get_password(self, username: str) -> str | None: ...
     def set_password(self, username: str, password: str) -> None: ...
     def delete_password(self, username: str) -> None: ...
 
 
 class MemoryTokenStore:
-    """Bellek ici token store — testler ve keyring'in calismadigi ortamlar icin.
+    """Bellek ici token store — testler icin (kalici degildir)."""
 
-    Uretimde keyring tercih edilir; bu store kalici degildir.
-    """
+    backend = "memory"
 
     def __init__(self) -> None:
         self._access: str | None = None
         self._refresh: str | None = None
+        self._username: str | None = None
         self._passwords: dict[str, str] = {}
 
     def get_access_token(self) -> str | None:
@@ -86,6 +91,16 @@ class MemoryTokenStore:
     def clear(self) -> None:
         self._access = None
         self._refresh = None
+        self._username = None
+
+    def get_username(self) -> str | None:
+        return self._username
+
+    def set_username(self, username: str) -> None:
+        self._username = username
+
+    def clear_username(self) -> None:
+        self._username = None
 
     def get_password(self, username: str) -> str | None:
         return self._passwords.get(username)
@@ -100,13 +115,14 @@ class MemoryTokenStore:
 class KeyringTokenStore:
     """keyring tabanli token store (servis: ``florence-sdk``).
 
-    keyring'in calismadigi headless ortamlarda (ornek: dbus yok) sessizce
-    ``MemoryTokenStore`` davranisina duser ve uyari loglar.
+    keyring'in calismadigi headless ortamlarda (ornek: dbus yok)
+    ``FileTokenStore`` fallback'ine duser (T3.2b: kalici + Fernet sifreli).
+    Sessiz bellek fallback'i YOKTUR.
     """
 
     def __init__(self, service: str = "florence-sdk", fallback: TokenStore | None = None) -> None:
         self._service = service
-        self._fallback: TokenStore = fallback or MemoryTokenStore()
+        self._fallback: TokenStore = fallback or FileTokenStore()
         self._keyring: Any | None = None
         try:
             import keyring
@@ -116,10 +132,15 @@ class KeyringTokenStore:
             self._keyring = keyring
         except Exception:
             logger.warning(
-                "keyring kullanilamiyor (%s); tokenlar bellekte tutulacak "
-                "(kalici degil). KeyringStore yerine MemoryTokenStore kullanabilirsiniz.",
+                "keyring kullanilamiyor (%s); FileTokenStore fallback'i "
+                "kullanilacak (Fernet sifreli, kalici).",
                 service,
             )
+
+    @property
+    def backend(self) -> str:
+        """Aktif depo: ``keyring`` veya ``file`` (fallback)."""
+        return "keyring" if self._keyring is not None else "file"
 
     def _get(self, key: str) -> str | None:
         if self._keyring is not None:
@@ -127,9 +148,13 @@ class KeyringTokenStore:
                 return self._keyring.get_password(self._service, key)
             except Exception:
                 return None
-        return self._fallback.get_access_token() if key == _ACCESS_KEY else (
-            self._fallback.get_refresh_token() if key == _REFRESH_KEY else None
-        )
+        if key == _ACCESS_KEY:
+            return self._fallback.get_access_token()
+        if key == _REFRESH_KEY:
+            return self._fallback.get_refresh_token()
+        if key == _USERNAME_KEY:
+            return self._fallback.get_username()
+        return None
 
     def get_access_token(self) -> str | None:
         return self._get(_ACCESS_KEY)
@@ -152,9 +177,31 @@ class KeyringTokenStore:
             try:
                 self._keyring.delete_password(self._service, _ACCESS_KEY)
                 self._keyring.delete_password(self._service, _REFRESH_KEY)
+                self._keyring.delete_password(self._service, _USERNAME_KEY)
             except Exception:
                 pass
         self._fallback.clear()
+
+    def get_username(self) -> str | None:
+        return self._get(_USERNAME_KEY)
+
+    def set_username(self, username: str) -> None:
+        if self._keyring is not None:
+            try:
+                self._keyring.set_password(self._service, _USERNAME_KEY, username)
+                return
+            except Exception:
+                pass
+        self._fallback.set_username(username)
+
+    def clear_username(self) -> None:
+        if self._keyring is not None:
+            try:
+                self._keyring.delete_password(self._service, _USERNAME_KEY)
+                return
+            except Exception:
+                pass
+        self._fallback.clear_username()
 
     def get_password(self, username: str) -> str | None:
         if self._keyring is not None:
@@ -249,7 +296,15 @@ class AuthManager:
             data=self._login_form(username, password),
             auth=False,
         )
-        return self._apply_tokens(data)
+        pair = self._apply_tokens(data)
+        self._store_username(username)
+        return pair
+
+    def _store_username(self, username: str) -> None:
+        """T3.2a: giris yapan kullanici adini store'a yazar (opsiyonel protokol)."""
+        set_user = getattr(self._store, "set_username", None)
+        if callable(set_user):
+            set_user(username)
 
     def refresh(self) -> TokenPair:
         """POST /api/v1/auth/refresh — single-flight (senkron).
@@ -375,7 +430,9 @@ class AuthManager:
             data=self._login_form(username, password),
             auth=False,
         )
-        return self._apply_tokens(data)
+        pair = self._apply_tokens(data)
+        self._store_username(username)
+        return pair
 
     async def refresh_async(self) -> TokenPair:
         """POST /api/v1/auth/refresh — single-flight (asenkron).
