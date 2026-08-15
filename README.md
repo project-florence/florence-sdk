@@ -1,5 +1,6 @@
-# florence-sdk
+[English version](./README-en.md)
 
+<<<<<<< HEAD
 [![PyPI version](https://img.shields.io/pypi/v/florence-sdk.svg)](https://pypi.org/project/florence-sdk/)
 [![Python](https://img.shields.io/pypi/pyversions/florence-sdk.svg)](https://pypi.org/project/florence-sdk/)
 [![License: AGPL v3+](https://img.shields.io/badge/License-AGPLv3%2B-blue.svg)](LICENSE)
@@ -9,9 +10,19 @@ AI araçları, MCP server, built-in agent'lar ve tam ekran TUI.
 
 Python SDK for the Florence platform — HTTP API wrapper (sync + async), CLI,
 AI tools, MCP server, built-in agents and a full-screen TUI.
+=======
+<p align="center">
+  <img src="https://raw.githubusercontent.com/project-florence/web/main/src/assets/florence_logo.svg" width="80" height="80" alt="Florence">
+</p>
 
-## Durum / Status
+<h1 align="center">Florence SDK</h1>
+>>>>>>> f0c3c80 (docs: rewrite README (showcase layout, TR+EN))
 
+<p align="center">
+  <strong>Florence API'si için resmi SDK</strong> — terminalden kullanım, kod entegrasyonu ve AI ajanları için MCP sunucusu.
+</p>
+
+<<<<<<< HEAD
 - [x] Faz 0–2 — Repo iskeleti, çekirdek client (config, errors, transport, auth), typed resource'lar
 - [x] Faz 3 — CLI (`florence` / `fl`) + semantic helpers (briefing, pulse, haber)
 - [x] Faz 4+ — AI katmanı, agent'lar, MCP server (`florence-mcp`)
@@ -28,9 +39,15 @@ Tam ekran, klavye dostu BIST izleyici: **Pano** (öne çıkanlar, günün hareke
 period seçimi, haberler) ve **Portföy** (toplam değer, dönem getirisi, değer grafiği, öne çıkan
 pozisyonlar). Veri 30–60s polling ile tazelenir; oturum CLI'ın kalıcı auth'uyla ortak (`fl auth
 login`). Tasarım ve klavye haritası: `docs/tui-design-v2.md`.
+=======
+---
 
-## Kurulum / Install
+Florence; hisse senetleri, döviz kurları, kıymetli metaller ve makroekonomik göstergeleri tek bir ekranda takip edebileceğiniz akıllı bir yatırım asistanıdır. Florence SDK; platformu terminalden ve kod içinden kullanmanızı sağlayan resmi araç setidir. CLI ile fiyat sorgulama, rapor üretme ve portföy yönetimi yapabilir; MCP sunucusu sayesinde AI asistanlarınızı Florence'a bağlayabilirsiniz.
+>>>>>>> f0c3c80 (docs: rewrite README (showcase layout, TR+EN))
 
+## Ekran Görüntüleri
+
+<<<<<<< HEAD
 Paket PyPI yayını **hazırlığındadır** (v0.2.0 wheel + sdist `uv build` ile üretilir; publish
 workflow'u `.github/workflows/publish.yml`); tek komutla repo'dan kurulum (Linux/macOS; Windows
 desteklenmez — WSL2 veya Docker önerilir):
@@ -160,8 +177,40 @@ fl download ASELS 3mo              # hisse mumlarını CSV'ye indir
 fl tui                             # tam ekran TUI (pano, izleme, detay/grafik, portföy)
 
 # Makine/AI dostu çıktı:
+=======
+<p align="center">
+  <img src="docs/screenshots/cli-demo.png" width="600" alt="CLI örneği — komut çıktısı">
+</p>
+
+CLI örneği — terminalde fiyat sorgulama çıktısı
+
+## Özellikler
+
+- **API İstemcisi** — Senkron ve asenkron istemcilerle Florence API'sini doğrudan kod içinden kullanın: fiyat sorgulama, rapor üretme ve portföy işlemleri
+- **Komut Satırı Arayüzü** — 94 komutla terminalden Florence: `fl price THYAO` ile anlık fiyat, rapor ve portföy yönetimi; tüm komutlarda `--json` çıktı desteği
+- **MCP Sunucusu** — Claude, Cursor gibi AI ajanlarının Florence'a güvenli erişimi; 92 hazır araç
+- **Bot Hesapları** — Otomatik işlemler için bot hesapları oluşturun ve yönetin
+- **Güvenli Oturum Yönetimi** — Oturum token'ları şifreli olarak saklanır
+
+## Hızlı Başlangıç
+
+Kurulum: Linux/macOS için tek komut — `curl -fsSL https://raw.githubusercontent.com/project-florence/florence-sdk/main/install.sh | bash`. PyPI yayını yakında.
+
+```bash
+>>>>>>> f0c3c80 (docs: rewrite README (showcase layout, TR+EN))
 fl price THYAO --json
 ```
 
-Tüm komutlar `--json` destekler; çıktı kuralı: stdout = veri, stderr = hata,
-exit kodları 0/1/2. Detaylı tasarım: `docs/cli-design.md`.
+MCP sunucusunu Claude, Cursor gibi AI ajanlarınıza bağlayarak Florence'ı doğrudan asistanınızın içinden kullanabilirsiniz.
+
+## Repolar
+
+- [web](https://github.com/project-florence/web) — Web uygulaması
+- [desktop](https://github.com/project-florence/desktop) — Masaüstü uygulaması
+- [mobile](https://github.com/project-florence/mobile) — Mobil uygulama
+- [backend](https://github.com/project-florence/backend) — API sunucusu
+- [api-spec](https://github.com/project-florence/api-spec) — API spesifikasyonu ve referansları
+
+## Lisans
+
+[AGPL-3.0](./LICENSE)
