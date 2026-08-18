@@ -1,26 +1,39 @@
 # florence-sdk
 
+[![PyPI version](https://img.shields.io/pypi/v/florence-sdk.svg)](https://pypi.org/project/florence-sdk/)
+[![Python](https://img.shields.io/pypi/pyversions/florence-sdk.svg)](https://pypi.org/project/florence-sdk/)
+[![License: AGPL v3+](https://img.shields.io/badge/License-AGPLv3%2B-blue.svg)](LICENSE)
+
 Florence platformu için Python SDK — HTTP API wrapper (senkron + asenkron), CLI,
-AI araçları, MCP server ve built-in agent'lar.
+AI araçları, MCP server, built-in agent'lar ve tam ekran TUI.
 
 Python SDK for the Florence platform — HTTP API wrapper (sync + async), CLI,
-AI tools, MCP server and built-in agents.
+AI tools, MCP server, built-in agents and a full-screen TUI.
 
 ## Durum / Status
 
-- [x] Faz 0 — Repo iskeleti (pyproject, paket yapısı)
-- [x] Faz 1 — Çekirdek client: config, errors, transport, auth
-- [x] Faz 2 — Typed resource'lar (endpoint grupları)
-- [ ] Faz 3 — CLI (`florence` / `fl`)
-- [ ] Faz 4+ — AI katmanı, agent'lar, MCP, skills, release
+- [x] Faz 0–2 — Repo iskeleti, çekirdek client (config, errors, transport, auth), typed resource'lar
+- [x] Faz 3 — CLI (`florence` / `fl`) + semantic helpers (briefing, pulse, haber)
+- [x] Faz 4+ — AI katmanı, agent'lar, MCP server (`florence-mcp`)
+- [x] TUI v2 — `fl tui`: pano, izleme listesi, ticker detay/grafik + portföy ekranı (Faz A–E)
+- [x] ccharts entegrasyonu — TUI grafikleri zorunlu `ccharts>=0.2.0` bağımlılığıyla (adapter katmanı)
+- [x] Sürüm 0.2.0 — paketleme, CI (GitHub Actions), dokümantasyon (Faz F)
 
-Detaylı plan: `.hermes/plans/2026-08-14_144500-florence-sdk.md` (workspace)
+Detaylı plan: `.hermes/plans/2026-08-18_210253-florence-sdk-tui-v2.md` (workspace) · TUI tasarımı: `docs/tui-design-v2.md`
+
+### TUI (`fl tui`)
+
+Tam ekran, klavye dostu BIST izleyici: **Pano** (öne çıkanlar, günün hareketleri, altın/döviz),
+**İzleme listesi** (favoriler + mini grafik), **Ticker detayı** (ccharts çizgi/mum grafiği,
+period seçimi, haberler) ve **Portföy** (toplam değer, dönem getirisi, değer grafiği, öne çıkan
+pozisyonlar). Veri 30–60s polling ile tazelenir; oturum CLI'ın kalıcı auth'uyla ortak (`fl auth
+login`). Tasarım ve klavye haritası: `docs/tui-design-v2.md`.
 
 ## Kurulum / Install
 
-### Hızlı kurulum (Linux/macOS) — `install.sh`
-
-Paket henüz PyPI'da değil; tek komutla repo'dan kurulum (Linux/macOS; Windows desteklenmez — WSL2 veya Docker önerilir):
+Paket PyPI yayını **hazırlığındadır** (v0.2.0 wheel + sdist `uv build` ile üretilir; publish
+workflow'u `.github/workflows/publish.yml`); tek komutla repo'dan kurulum (Linux/macOS; Windows
+desteklenmez — WSL2 veya Docker önerilir):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/project-florence/florence-sdk/main/install.sh | bash
@@ -144,7 +157,7 @@ fl simulate THYAO --days 30        # simülasyon
 fl portfolio list                  # portföyler
 fl export fetch 2025               # yıllık veri (sipariş → bekle → indir)
 fl download ASELS 3mo              # hisse mumlarını CSV'ye indir
-fl tui                             # tam ekran TUI (pano, izleme, detay)
+fl tui                             # tam ekran TUI (pano, izleme, detay/grafik, portföy)
 
 # Makine/AI dostu çıktı:
 fl price THYAO --json

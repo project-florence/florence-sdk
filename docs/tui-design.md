@@ -1,5 +1,10 @@
 # TUI Tasarım Raporu — `fl tui` (Faz 10)
 
+> **⚠️ GÜNCEL DEĞİL:** Bu rapor **v1 (Faz 10) tasarımıdır ve yerini v2 tarafından alınmıştır** —
+> [tui-design-v2.md](tui-design-v2.md) okuyun. v2 revizyonu: ccharts zorunlu grafik bağımlılığı
+> (P1), adapter katmanı (Y2), portföy ekranı kapsamda (P7), yeni config anahtarları (§6.1),
+> CI (P9). Bu dosya geçmiş/tasarım kararı kaydı olarak silinmeden korunur.
+
 > **Durum:** TASARIM — implementasyon yok. Bu rapor `src/florence/tui/` implementasyonunun ve
 > `fl tui` komutunun teknik şartnamesidir.
 > **Tarih:** 2026-08-14 · **Faz:** 10 (plan: `.hermes/plans/2026-08-14_144500-florence-sdk.md`)
