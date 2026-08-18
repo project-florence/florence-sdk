@@ -688,6 +688,65 @@ def test_config_set_and_show_roundtrip(
     assert data["default_output"] == {"value": "json", "source": "config"}
 
 
+# ----------------------------------------------------------------------
+# Faz D — TUI config allowlist genisletmesi (keşif #5/#6)
+# ----------------------------------------------------------------------
+def test_config_set_tui_market_closed_refresh_accepts_and_clamps(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cli_env: dict[str, str]
+) -> None:
+    cfg_file = tmp_path / "xdg" / "florence" / "config.toml"
+    # Aralik ici kabul
+    code, out, err = run_cli(monkeypatch, ["config", "set", "tui_market_closed_refresh", "500"], env=cli_env)
+    assert code == 0
+    # Disi clamp (60-3600): 10 -> 60
+    code, out, err = run_cli(monkeypatch, ["config", "set", "tui_market_closed_refresh", "10"], env=cli_env)
+    assert code == 0
+    assert 'tui_market_closed_refresh = "60"' in cfg_file.read_text(encoding="utf-8")
+    # Gecersiz -> exit 2
+    code, out, err = run_cli(monkeypatch, ["config", "set", "tui_market_closed_refresh", "abc"], env=cli_env)
+    assert code == 2
+    assert "tam sayı olmalı" in err
+
+
+def test_config_set_tui_default_chart_accepts_and_rejects(
+    monkeypatch: pytest.MonkeyPatch, cli_env: dict[str, str]
+) -> None:
+    code, out, err = run_cli(monkeypatch, ["config", "set", "tui_default_chart", "candle"], env=cli_env)
+    assert code == 0
+    code, out, err = run_cli(monkeypatch, ["config", "set", "tui_default_chart", "line"], env=cli_env)
+    assert code == 0
+    code, out, err = run_cli(monkeypatch, ["config", "set", "tui_default_chart", "bars"], env=cli_env)
+    assert code == 2
+    assert "geçersiz" in err
+
+
+def test_config_set_tui_watchlist_source_only_favorites(
+    monkeypatch: pytest.MonkeyPatch, cli_env: dict[str, str]
+) -> None:
+    """P8: tui_watchlist_source yalnizca 'favorites' kabul eder."""
+    code, out, err = run_cli(monkeypatch, ["config", "set", "tui_watchlist_source", "favorites"], env=cli_env)
+    assert code == 0
+    code, out, err = run_cli(monkeypatch, ["config", "set", "tui_watchlist_source", "local"], env=cli_env)
+    assert code == 2
+    assert "geçersiz" in err
+
+
+def test_config_set_tui_limits_accepts_and_clamps(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cli_env: dict[str, str]
+) -> None:
+    """tui_top_limit / tui_summary_limit: kabul + disi clamp (1-50) + gecersiz red."""
+    cfg_file = tmp_path / "xdg" / "florence" / "config.toml"
+    code, out, err = run_cli(monkeypatch, ["config", "set", "tui_top_limit", "5"], env=cli_env)
+    assert code == 0
+    code, out, err = run_cli(monkeypatch, ["config", "set", "tui_summary_limit", "200"], env=cli_env)
+    assert code == 0  # clamp -> 50
+    content = cfg_file.read_text(encoding="utf-8")
+    assert 'tui_top_limit = "5"' in content
+    assert 'tui_summary_limit = "50"' in content
+    code, out, err = run_cli(monkeypatch, ["config", "set", "tui_summary_limit", "abc"], env=cli_env)
+    assert code == 2
+
+
 def test_misc_ipo_and_legal_text(
     monkeypatch: pytest.MonkeyPatch, cli_env: dict[str, str]
 ) -> None:

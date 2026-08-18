@@ -1,8 +1,8 @@
 """Tus haritasi sabitleri — ekranlar arasi tek kaynak (docs/tui-design.md §3.1).
 
-``PERIODS`` detay ekraninin grafik period haritasidir (PART 2 kullanir);
-``PERIOD_LABELS`` footer/goesterim etiketleridir. Degisiklikler yalnizca
-bu modulden yapilir — ekranlar sabitlere atif yapar.
+``PERIODS`` detay ekraninin grafik period haritasidir; ``PERIOD_LABELS``
+footer/goesterim etiketleridir. Degisiklikler yalnizca bu modulden
+yapilir — ekranlar sabitlere atif yapar.
 """
 
 #: Detay grafigi period haritasi: tus -> period (tasarim §5.4).
@@ -43,7 +43,7 @@ KEY_TOGGLE_MOVERS = "tab"
 KEY_OPEN_DETAIL = "enter"
 
 # ----------------------------------------------------------------------
-# Detay tuslari (PART 2 — screens/detail.py kullanir)
+# Detay tuslari (screens/detail.py kullanir)
 # ----------------------------------------------------------------------
 KEY_BACK = "escape"
 KEY_FAVORITE = "f"

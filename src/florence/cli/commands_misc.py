@@ -6,10 +6,11 @@ version, contact, contributors, maintenance, health ve ``announcement``
 alt varligi (list/get — JWT; yazma uclari KAPSAM DISI).
 
 Config grubu (tasarim 2.10) SDK endpoint'i DEGILDIR: ``~/.config/florence/
-config.toml`` uzerinde calisir (allowlist: ``api_url``, ``default_output``).
+config.toml`` uzerinde calisir (allowlist ``config_cli.ALLOWED_KEYS`` —
+``api_url``, ``default_output`` ve TUI anahtarlari: ``tui_refresh_seconds``,
+``tui_default_period``, ``tui_market_closed_refresh``, ``tui_default_chart``,
+``tui_watchlist_source``, ``tui_top_limit``, ``tui_summary_limit``).
 ``last_username``/``last_type`` yalnizca CLI tarafindan otomatik yazilir.
-NOT: TUI anahtarlari (``tui_refresh_seconds``, ``tui_default_period``)
-ileride eklenecek — simdilik allowlist'e dahil degil (``config_cli``).
 """
 
 from __future__ import annotations

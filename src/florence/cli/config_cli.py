@@ -33,11 +33,15 @@ ALLOWED_KEYS = frozenset(
     {
         "api_url",
         "default_output",
-        # TUI ayarlari (docs/tui-design.md §6.1) — PART 1.
+        # TUI ayarlari (docs/tui-design.md §6.1) — Faz D genisletmesi.
         "tui_refresh_seconds",
         "tui_default_period",
         # TUI ayarlari (plan v2, P6) — detay grafik tipi (line|candle).
         "tui_default_chart",
+        "tui_market_closed_refresh",
+        "tui_watchlist_source",
+        "tui_top_limit",
+        "tui_summary_limit", (feat(cli+tui): config allowlist genisletmesi — tui_market_closed_refresh/tui_default_chart/tui_watchlist_source (P8)/tui_top_limit/tui_summary_limit + DataHub limitleri config'ten (keşif #5/#6) + bayat PART 2/allowlist notlari temizligi — 351 test, ruff temiz)
     }
 )
 
@@ -55,6 +59,21 @@ TUI_DEFAULT_CHARTS = frozenset({"line", "candle"})
 #: tui_refresh_seconds kabul araligi (disi clamp — tasarim §6.1).
 TUI_REFRESH_MIN = 10
 TUI_REFRESH_MAX = 600
+
+#: Kapali piyasada fallback poll araligi kabul araligi (K4: 60s-1sa).
+TUI_CLOSED_REFRESH_MIN = 60
+TUI_CLOSED_REFRESH_MAX = 3600
+
+#: tui_default_chart gecerli degerleri (line|candle — Y4/P6).
+TUI_DEFAULT_CHARTS = frozenset({"line", "candle"})
+
+#: tui_watchlist_source gecerli degerleri (P8: yalnizca favorites;
+#: yerel dosya listesi v2 kapsaminda degil, gelecege genisletme notu).
+TUI_WATCHLIST_SOURCES = frozenset({"favorites"})
+
+#: tui_top_limit / tui_summary_limit kabul araligi (disi clamp).
+TUI_LIMIT_MIN = 1
+TUI_LIMIT_MAX = 50
 
 
 def default_config_path() -> Path:
@@ -139,10 +158,34 @@ class CliConfig:
             raise typer.UsageError(
                 f"tui_default_period değeri '{value}' geçersiz; 1mo|3mo|6mo|1y olmalı"
             )
+        elif key == "tui_market_closed_refresh":
+            try:
+                n = int(value)
+            except ValueError:
+                raise typer.UsageError(
+                    f"tui_market_closed_refresh tam sayı olmalı: {value}"
+                ) from None
+            # 60-3600 arasi kabul; disi clamp (K4).
+            value = str(max(TUI_CLOSED_REFRESH_MIN, min(TUI_CLOSED_REFRESH_MAX, n)))
+ (feat(cli+tui): config allowlist genisletmesi — tui_market_closed_refresh/tui_default_chart/tui_watchlist_source (P8)/tui_top_limit/tui_summary_limit + DataHub limitleri config'ten (keşif #5/#6) + bayat PART 2/allowlist notlari temizligi — 351 test, ruff temiz)
         elif key == "tui_default_chart" and value not in TUI_DEFAULT_CHARTS:
             raise typer.UsageError(
                 f"tui_default_chart değeri '{value}' geçersiz; line|candle olmalı"
             )
+        elif key == "tui_watchlist_source" and value not in TUI_WATCHLIST_SOURCES:
+            raise typer.UsageError(
+                f"tui_watchlist_source değeri '{value}' geçersiz; yalnızca 'favorites' kabul edilir (P8)"
+            )
+        elif key in ("tui_top_limit", "tui_summary_limit"):
+            try:
+                n = int(value)
+            except ValueError:
+                raise typer.UsageError(
+                    f"{key} tam sayı olmalı: {value}"
+                ) from None
+            # 1-50 arasi kabul; disi clamp.
+            value = str(max(TUI_LIMIT_MIN, min(TUI_LIMIT_MAX, n)))
+ (feat(cli+tui): config allowlist genisletmesi — tui_market_closed_refresh/tui_default_chart/tui_watchlist_source (P8)/tui_top_limit/tui_summary_limit + DataHub limitleri config'ten (keşif #5/#6) + bayat PART 2/allowlist notlari temizligi — 351 test, ruff temiz)
         self._data[key] = value
         self._save()
 

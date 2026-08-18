@@ -61,6 +61,7 @@ def _valid_chart(value: Any) -> str:
     if value in keys.CHART_LABELS:
         return str(value)
     return keys.DEFAULT_CHART
+ (feat(cli+tui): config allowlist genisletmesi — tui_market_closed_refresh/tui_default_chart/tui_watchlist_source (P8)/tui_top_limit/tui_summary_limit + DataHub limitleri config'ten (keşif #5/#6) + bayat PART 2/allowlist notlari temizligi — 351 test, ruff temiz)
 
 
 class HelpModal(ModalScreen[None]):
@@ -136,6 +137,7 @@ class FlorenceTUI(App[None]):
         default_period: str | None = None,
         default_chart: str | None = None,
         market_closed_refresh: float | None = None,
+        default_chart: str | None = None,
         ttl_overrides: dict[str, float] | None = None,
     ) -> None:
         super().__init__()
@@ -165,6 +167,10 @@ class FlorenceTUI(App[None]):
             client=client if client is not None else AsyncFlorenceClient(),
             refresh_seconds=self.refresh_seconds,
             market_closed_refresh=closed,
+            # DataHub limitleri config'ten (keşif #6): anahtar VARSA okunur,
+            # yoksa/gecersizse DataHub varsayilani (10).
+            top_limit=_clamp_int(cfg.get("tui_top_limit"), 1, 50, 10),
+            summary_limit=_clamp_int(cfg.get("tui_summary_limit"), 1, 50, 10),
             ttl_overrides=ttl_overrides,
         )
         self._poll_timer: Timer | None = None
@@ -261,10 +267,7 @@ class FlorenceTUI(App[None]):
         self.switch_screen("dashboard")
 
     def action_go_watchlist(self) -> None:
-        if "watchlist" in self.SCREENS:
-            self.switch_screen("watchlist")
-        else:
-            self.notify("İzleme ekranı PART 2'de eklenecek")
+        self.switch_screen("watchlist")
 
     def action_refresh(self) -> None:
         self.poll_now()

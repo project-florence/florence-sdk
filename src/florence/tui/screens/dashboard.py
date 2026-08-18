@@ -263,7 +263,7 @@ class DashboardScreen(Screen[None]):
         self._refresh_movers()
 
     def action_open_detail(self) -> None:
-        """PART 2 kancasi: seçili ticker detay ekranina gider."""
+        """Seçili ticker detay ekranina gider (statis-top veya movers)."""
         ticker = self._selected_ticker()
         if not ticker:
             return

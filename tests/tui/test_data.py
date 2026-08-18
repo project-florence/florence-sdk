@@ -320,3 +320,39 @@ def test_status_bar_text_holiday_and_invalid():
     # None/dict-olmayan -> alinamadi; bos dict -> kapali (dict kabul edilir)
     assert "alınamadı" in status_bar_text(None, fetched)
     assert "KAPALI" in status_bar_text({}, fetched)
+
+
+# ----------------------------------------------------------------------
+# Faz D — config'ten DataHub limitleri + tui_default_chart (keşif #5/#6)
+# ----------------------------------------------------------------------
+def test_app_reads_config_limits_and_default_chart(tmp_path, make_client):
+    from florence.cli.config_cli import CliConfig
+    from florence.tui.app import FlorenceTUI
+
+    cfg = CliConfig(path=tmp_path / "config.toml")
+    cfg.set("tui_top_limit", "5")
+    cfg.set("tui_summary_limit", "8")
+    cfg.set("tui_default_chart", "candle")
+    client = make_client(make_handler())
+    app = FlorenceTUI(client=client, config=cfg, refresh_seconds=60)
+    assert app.data.top_limit == 5
+    assert app.data.summary_limit == 8
+    assert app.default_chart == "candle"
+
+
+def test_app_invalid_config_values_fall_back(tmp_path, make_client):
+    from florence.cli.config_cli import CliConfig
+    from florence.tui.app import FlorenceTUI
+
+    # Elle yazilan config (fl config set degil — allowlist disi deger).
+    path = tmp_path / "config.toml"
+    path.write_text(
+        '[cli]\ntui_default_chart = "bars"\ntui_top_limit = "abc"\n',
+        encoding="utf-8",
+    )
+    cfg = CliConfig(path=path)
+    client = make_client(make_handler())
+    app = FlorenceTUI(client=client, config=cfg, refresh_seconds=60)
+    assert app.default_chart == "line"  # gecersiz -> varsayilan
+    assert app.data.top_limit == 10  # gecersiz -> varsayilan
+    assert app.data.summary_limit == 10
