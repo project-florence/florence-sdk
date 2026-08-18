@@ -131,7 +131,25 @@ wheels = [
 [[package]]
 name = "ccharts"
 version = "0.2.0"
-source = { directory = "/home/efe/Belgeler/ccharts" }
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f4/93/75e035e51fc4c0dc5cb916f49aecae0e5b56b69d2fa5de7eeaa3b71ea22c/ccharts-0.2.0.tar.gz", hash = "sha256:b551137bc4f45c7ea47ace1c0e8a41c7ac881c1db8780b73ce9edaf127864115", size = 25434, upload-time = "2026-08-18T19:33:21.591Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/17/1d/e2e0fe9b64877718d2e2f5e7d90b8a47361dc73e281105cf857288b4f7f5/ccharts-0.2.0-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:d2c29c5ea658deb95fc844499d5bb2bd95c6e8a1157d4e86ca52ee48d05aa1f8", size = 19389, upload-time = "2026-08-18T19:33:04.909Z" },
+    { url = "https://files.pythonhosted.org/packages/ea/64/cf0537c1ce999b15a05a78ac9ce0e068c12fe8eaab3d6c32c837ecf3e861/ccharts-0.2.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:29ea3cb556b834c2a1332cfcf6dec036e3696e1ea9061a62d93825faa5f5a116", size = 19188, upload-time = "2026-08-18T19:33:05.835Z" },
+    { url = "https://files.pythonhosted.org/packages/2d/dc/6446cf500330f85a3e203810495aa8049881ce95d8e756b7508740111cea/ccharts-0.2.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:dad57fbdd069247fb53f8061079930dc767148fdbbf1d90169167fea18367af5", size = 51667, upload-time = "2026-08-18T19:33:06.557Z" },
+    { url = "https://files.pythonhosted.org/packages/71/74/303a25e2f9ab393e8e70d34fa01e5531bc631766ae67d061e1da6f63ea8e/ccharts-0.2.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:2c4d33da41208d7e78767619dad918b6c0cf2bb04395a5e6e4f6fdf03c685c7c", size = 50216, upload-time = "2026-08-18T19:33:07.399Z" },
+    { url = "https://files.pythonhosted.org/packages/e4/a6/a55898ec2f8f91e884b0e7e0878c715b506cc57a3b3c226c2b2cfbb4d18b/ccharts-0.2.0-cp312-cp312-win_amd64.whl", hash = "sha256:32e6c5dda6893374794e0fd5a287ba419562bdc15015c083b37f07b1023bd640", size = 22020, upload-time = "2026-08-18T19:33:08.19Z" },
+    { url = "https://files.pythonhosted.org/packages/1c/20/2f00fc945bfcf85f6ad31154403dcacc952286afc740497b834c5fedba2c/ccharts-0.2.0-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:311ff38114b22941d4ca05f0fed831f9468f2617550a30d2a946a227f430b697", size = 19389, upload-time = "2026-08-18T19:33:08.909Z" },
+    { url = "https://files.pythonhosted.org/packages/a3/dd/59b0c1fcaed8ae0b412ae3628c24574b3b510656d2444377de209a510220/ccharts-0.2.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:4ae608740ba4450daed698f6cf4c0c01ba6fa3a1bdc59ccf1a06fb1466ac57a5", size = 19190, upload-time = "2026-08-18T19:33:09.737Z" },
+    { url = "https://files.pythonhosted.org/packages/d3/35/b43ee51e62c11bf0cbfe8bbf9cbac6e6f5b723026d88c678f01fd1328080/ccharts-0.2.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:91a464844f1062bf74d05d47dceed0243b26efa589c7613ed3f9759be7005414", size = 51677, upload-time = "2026-08-18T19:33:10.456Z" },
+    { url = "https://files.pythonhosted.org/packages/c1/4d/90d162cee22582f2b130fae1160260fcb5e810a8a77c6b6750b138cb85d4/ccharts-0.2.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:e083ecc902cb8637ea3ed691401c86dfa2386238dcf30e171d78d2c1af4c3734", size = 50239, upload-time = "2026-08-18T19:33:11.211Z" },
+    { url = "https://files.pythonhosted.org/packages/7c/35/7d44d41a2edefed91cd98e22c39c8db64cced0a1445d7e27f8ff545196a9/ccharts-0.2.0-cp313-cp313-win_amd64.whl", hash = "sha256:e74c3bcf04fa1472b8003ce3d308fdb3bce4e708d22ce74f629664193baa1a04", size = 22013, upload-time = "2026-08-18T19:33:12.031Z" },
+    { url = "https://files.pythonhosted.org/packages/33/ce/6c161a80b5162d08473629c25d701c14e6a2745b921fe56e88ae86bd3b80/ccharts-0.2.0-cp314-cp314-macosx_10_15_x86_64.whl", hash = "sha256:733b30f9c199d669ef30614f4ae7b196611bbe0f423f256dd43ea1e545e66a81", size = 19449, upload-time = "2026-08-18T19:33:12.778Z" },
+    { url = "https://files.pythonhosted.org/packages/7e/bd/27a92f303528677ad937753b98fc62dff0c1c80935f3119df121a6175578/ccharts-0.2.0-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:fbde8034f5f07d9cc2c4be519ddc01c7b99596b89b9c6ed4256e9ead46a0c933", size = 19192, upload-time = "2026-08-18T19:33:13.64Z" },
+    { url = "https://files.pythonhosted.org/packages/7c/8f/abc65efb717456afc09e352458d6181b310c881b8515c2332e5ba110a867/ccharts-0.2.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:661bc30d9a66336fe2ab0513c478d4956288fa343ecf3fd80f4d2bb61ce40cd7", size = 51770, upload-time = "2026-08-18T19:33:14.502Z" },
+    { url = "https://files.pythonhosted.org/packages/72/88/d57c57c0c3a3b8f874d28162f35c81c8b21a50d46d8b8f3cbcb888d377f8/ccharts-0.2.0-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:af9ad2ae19e45fad47ba60532d5585a2654249fcf3d2467aa7bafd0ceb6706ea", size = 50296, upload-time = "2026-08-18T19:33:15.23Z" },
+    { url = "https://files.pythonhosted.org/packages/39/51/0de029a1fc2ba3361ebde64cf5470b75e400049bcf6a87ee0559106d3728/ccharts-0.2.0-cp314-cp314-win_amd64.whl", hash = "sha256:bcb250248164366612a302b81af0cab0ba9c14b49c31256496723b30aacf7411", size = 22534, upload-time = "2026-08-18T19:33:16.544Z" },
+]
 
 [[package]]
 name = "certifi"
@@ -581,7 +599,7 @@ server = [
 
 [[package]]
 name = "florence-sdk"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "ccharts" },
@@ -610,7 +628,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "ccharts", directory = "/home/efe/Belgeler/ccharts" },
+    { name = "ccharts", specifier = ">=0.2.0" },
     { name = "cryptography", specifier = ">=42" },
     { name = "fastmcp", specifier = ">=2.0" },
     { name = "httpx", specifier = ">=0.27" },

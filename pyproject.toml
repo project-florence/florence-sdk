@@ -1,6 +1,6 @@
 [project]
 name = "florence-sdk"
-version = "0.1.0"
+version = "0.2.0"
 description = "Florence API SDK — Python wrapper (sync+async), CLI, AI tools, MCP server and agents for the Florence platform"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -33,10 +33,9 @@ dependencies = [
     "rich>=13.7",
     "cryptography>=42",
     "textual>=0.60",
-    # P1 (onaylandi): ccharts zorunlu ana bagimlilik. PyPI yayini yapilana
-    # kadar (v0.2.0) gecici path bagimliligi (T-A1 notu: Riski P1). Yayin
-    # sonrasi Faz F'de "ccharts>=0.2.0"a donulur.
-    "ccharts @ file:///home/efe/Belgeler/ccharts",
+    # P1 (onaylandi): ccharts zorunlu ana bagimlilik — TUI grafikleri (Faz F).
+    # v0.2.0 PyPI yayini canli; gecici path bagimliligi kaldirildi.
+    "ccharts>=0.2.0",
 ]
 
 [project.urls]
@@ -64,11 +63,6 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[tool.hatch.metadata]
-# P1 gecici path bagimliligi icin gerekli (Riski P1 notu):
-# PyPI yayini sonrasi "ccharts>=0.2.0"a gecince bu anahtar kaldirilabilir.
-allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/florence", "src/florence_mcp"]
