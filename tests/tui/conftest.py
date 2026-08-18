@@ -73,6 +73,40 @@ MOCK_NEWS = [
     {"title": "THYAO ikinci haber", "url": "https://example.com/thyao-2"},
 ]
 
+#: PORTFÖY mock'lari (Faz E — P7; alan adlari kod okumasi + helpers-design.md
+#: H5 mock şemasından — canli backend bu makinede kalkik olmadigindan
+#: docstring'de not dusulur; uydurma alan yok).
+MOCK_PORTFOLIOS = [
+    {"id": 7, "name": "Benim Portföyüm", "initial_balance": 100000.0},
+    {"id": 9, "name": "Uzun Vade", "initial_balance": 50000.0},
+]
+#: GET /portfolios/{id}/snapshot — birlesik ozet (H5 sözlesmesi).
+MOCK_PORTFOLIO_SNAPSHOT = {
+    "portfolio_id": 7,
+    "total_value": 152340.5,
+    "pnl": 12340.5,
+    "pnl_pct": 8.8,
+}
+#: GET /portfolios/{id}/history — varsayilan sekil: deger serisi (OHLC yok).
+MOCK_PORTFOLIO_HISTORY = [
+    {"ts": "2026-07-01T00:00:00+00:00", "value": 140000.0},
+    {"ts": "2026-07-02T00:00:00+00:00", "value": 148000.0},
+    {"ts": "2026-07-03T00:00:00+00:00", "value": 152340.5},
+]
+#: Tam OHLC sekli (T-E3: birebir korunur, sentez yok).
+MOCK_PORTFOLIO_HISTORY_OHLC = [
+    {"ts": "2026-07-01T00:00:00+00:00", "open": 138000.0, "high": 145000.0, "low": 137000.0, "close": 140000.0},
+    {"ts": "2026-07-02T00:00:00+00:00", "open": 140000.0, "high": 149000.0, "low": 139500.0, "close": 148000.0},
+    {"ts": "2026-07-03T00:00:00+00:00", "open": 148000.0, "high": 153000.0, "low": 147500.0, "close": 152340.5},
+]
+#: GET /portfolios/{id}/performers — {top: [...], bottom: [...]} (H5).
+MOCK_PORTFOLIO_PERFORMERS = {
+    "top": [
+        {"ticker": "THYAO", "return_pct": 8.8, "pnl": 8400.0},
+        {"ticker": "ASELS", "return_pct": 4.2, "pnl": 3200.0},
+    ]
+}
+
 
 def make_handler(
     *,
@@ -91,6 +125,11 @@ def make_handler(
     company_info: dict[str, dict[str, Any]] | None = None,
     history: list[dict[str, Any]] | None = None,
     news: list[dict[str, Any]] | None = None,
+    portfolios: list[dict[str, Any]] | None = None,
+    portfolio_snapshot: dict[str, Any] | None = None,
+    portfolio_fail_snapshot: bool = False,
+    portfolio_history: list[dict[str, Any]] | None = None,
+    portfolio_performers: dict[str, Any] | list[dict[str, Any]] | None = None,
 ) -> Callable[[httpx.Request], httpx.Response]:
     """Path'e gore mock yanit donduren httpx handler (tamamen offline).
 
@@ -99,7 +138,10 @@ def make_handler(
     testleri icin), ``[]`` ise gercekten bos liste doner. PART 2 uclari:
     ``/favorites``, ``/price/current`` (ticker'a gore), ``/price/history/``,
     ``/companies/info/``, ``/news/`` — ``price_fail_tickers`` icindeki
-    ticker'larin fiyati 500 doner (kismi hata toleransi testi).
+    ticker'larin fiyati 500 doner (kismi hata toleransi testi). Faz E
+    portfoy uclari: ``/portfolios`` (liste), ``/portfolios/{id}/snapshot``,
+    ``/portfolios/{id}/history``, ``/portfolios/{id}/performers`` —
+    ``portfolio_fail_snapshot`` snapshot ucuna 500 doner (kismi hata testi).
     """
     status = (
         status_json
@@ -146,6 +188,21 @@ def make_handler(
         if path.endswith("/favorites"):
             rows = MOCK_FAVORITES if favorites is None else favorites
             return httpx.Response(200, json=rows)
+        # Faz E portfoy uclari (P7).
+        if path.endswith("/portfolios"):
+            rows = MOCK_PORTFOLIOS if portfolios is None else portfolios
+            return httpx.Response(200, json=rows)
+        if "/portfolios/" in path and path.endswith("/snapshot"):
+            if portfolio_fail_snapshot:
+                return httpx.Response(500, json={"detail": "error_internal"})
+            data = MOCK_PORTFOLIO_SNAPSHOT if portfolio_snapshot is None else portfolio_snapshot
+            return httpx.Response(200, json=data)
+        if "/portfolios/" in path and path.endswith("/history"):
+            rows = MOCK_PORTFOLIO_HISTORY if portfolio_history is None else portfolio_history
+            return httpx.Response(200, json=rows)
+        if "/portfolios/" in path and path.endswith("/performers"):
+            data = MOCK_PORTFOLIO_PERFORMERS if portfolio_performers is None else portfolio_performers
+            return httpx.Response(200, json=data)
         if path.endswith("/price/current"):
             ticker = request.url.params.get("ticker", "")
             if price_fail_tickers and ticker in price_fail_tickers:

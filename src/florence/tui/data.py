@@ -36,6 +36,9 @@ __all__ = [
     "DashboardSnapshot",
     "DataHub",
     "DetailSnapshot",
+    "PortfolioPosition",
+    "PortfolioSnapshot",
+    "PortfolioSummary",
     "WatchlistRow",
     "WatchlistSnapshot",
     "delta_style",
@@ -63,6 +66,11 @@ DEFAULT_TTL: dict[str, float] = {
     "company_info": 300.0,
     "news": 300.0,
     "price_history": 600.0,
+    # Faz E (P7): portfoy listesi/ozet/performans hafif -> 1dk; gecmis agir -> 10dk.
+    "portfolios": 60.0,
+    "portfolio_snapshot": 60.0,
+    "portfolio_history": 600.0,
+    "portfolio_performers": 60.0,
 }
 
 #: Canli backend dogrulamasi: bu pano bolumleri gecerli token ister.
@@ -164,6 +172,54 @@ class DetailSnapshot:
     current_price: dict[str, Any] | None
     price_history: list[dict[str, Any]] | None
     news: list[dict[str, Any]] | None
+    fetched_at: datetime
+    errors: dict[str, str] = field(default_factory=dict)
+    auth_sections: tuple[str, ...] = ()
+
+
+@dataclass
+class PortfolioSummary:
+    """``GET /portfolios`` listesindeki tek portfoy satiri (Faz E — P7).
+
+    Alan adlari plan T0.2'nin canli sema notundan alinamadi (bu makinede
+    backend kalkik degil) — kod okumasi + helpers-design.md H5 sozlesmesinden
+    mock sema kuruldu; ``id``/``portfolio_id`` esnekligi toleranslidir
+    (uydurma alan yok). Canli dogrulama Faz F'ye ertelendi (plan risk 7).
+    """
+
+    portfolio_id: str
+    name: str
+    initial_balance: float | None = None
+
+
+@dataclass
+class PortfolioPosition:
+    """Performers girislerinden biri (Ticker + donem getirisi)."""
+
+    ticker: str
+    return_pct: float | None = None
+    pnl: float | None = None
+
+
+@dataclass
+class PortfolioSnapshot:
+    """Bir poll tick'inin portfoy ekrani icin toplu sonucu.
+
+    ``summaries is None`` -> liste alinamadi (hata); ``summaries == []`` ->
+    gercekten bos liste (ekran 'Portfoyunuz yok' gosterir). ``summary``
+    secili portfoyun snapshot'idir (``total_value``/``pnl``/``pnl_pct`` —
+    H5 sozlesmesi); kismi hatada ``None`` kalir (``errors`` mesaj tasir) ve
+    liste/history/performers etkilenmez. ``portfolio_id`` otomatik secilen
+    portfoyu yansitir (cagiriya verilen id yoksa tek portfoy otomatik
+    secilir; birden fazlaysa ``None`` — ekran secim bekler).
+    """
+
+    portfolio_id: str | None
+    summaries: list[PortfolioSummary] | None
+    summary: dict[str, Any] | None
+    history: list[dict[str, Any]] | None
+    performers: list[PortfolioPosition] | None
+    market_status: dict[str, Any] | None
     fetched_at: datetime
     errors: dict[str, str] = field(default_factory=dict)
     auth_sections: tuple[str, ...] = ()
@@ -543,6 +599,57 @@ class DataHub:
         return self._set_cached(key, rows)
 
     # ------------------------------------------------------------------
+    # Portfoy fetch'leri (Faz E — P7; tumu JWT ister)
+    # ------------------------------------------------------------------
+    async def get_portfolio_list(self) -> list[PortfolioSummary] | None:
+        """``/portfolios`` — portfoy listesi (JWT; 60s TTL)."""
+        cached = self._get_cached("portfolios")
+        if cached is not self._CACHE_MISS:
+            return cached
+        data = await self._client.portfolio.list_portfolios()
+        rows = data if isinstance(data, list) else []
+        summaries = [s for s in (_portfolio_summary(r) for r in rows) if s is not None]
+        return self._set_cached("portfolios", summaries)
+
+    async def get_portfolio_snapshot(self, portfolio_id: str) -> dict[str, Any] | None:
+        """``/portfolios/{id}/snapshot`` — birlesik ozet (JWT; 60s TTL)."""
+        key = f"portfolio_snapshot:{portfolio_id}"
+        cached = self._get_cached(key)
+        if cached is not self._CACHE_MISS:
+            return cached
+        data = await self._client.portfolio.snapshot(portfolio_id)
+        result = data if isinstance(data, dict) else {}
+        return self._set_cached(key, result)
+
+    async def get_portfolio_history(
+        self, portfolio_id: str, period: str = "1mo"
+    ) -> list[dict[str, Any]] | None:
+        """``/portfolios/{id}/history`` — deger gecmisi (JWT; 10dk TTL)."""
+        key = f"portfolio_history:{portfolio_id}:{period}"
+        cached = self._get_cached(key)
+        if cached is not self._CACHE_MISS:
+            return cached
+        data = await self._client.portfolio.history(portfolio_id, period=period)
+        rows = data if isinstance(data, list) else []
+        return self._set_cached(key, rows)
+
+    async def get_portfolio_performers(
+        self, portfolio_id: str, top_n: int = 5
+    ) -> list[PortfolioPosition] | None:
+        """``/portfolios/{id}/performers`` — en iyi/en kotu N (JWT; 60s TTL).
+
+        Yanit ``{top: [...], bottom: [...]}`` (H5 sozlesmesi) veya duz liste
+        olabilir — ekran usti bilgi icin ``top`` listesi esas alinir.
+        """
+        key = f"portfolio_performers:{portfolio_id}:{top_n}"
+        cached = self._get_cached(key)
+        if cached is not self._CACHE_MISS:
+            return cached
+        data = await self._client.portfolio.performers(portfolio_id, top_n=top_n)
+        result = _portfolio_positions(data)
+        return self._set_cached(key, result)
+
+    # ------------------------------------------------------------------
     # Pano toplu fetch'i (poll worker tek cagri yapar)
     # ------------------------------------------------------------------
     async def fetch_dashboard(self) -> DashboardSnapshot:
@@ -721,6 +828,146 @@ class DataHub:
             errors=errors,
             auth_sections=tuple(sorted(auth_sections)),
         )
+
+    # ------------------------------------------------------------------
+    # Portfoy toplu fetch'i (poll worker tek cagri yapar)
+    # ------------------------------------------------------------------
+    async def fetch_portfolio(
+        self, portfolio_id: str | None, period: str = "1mo"
+    ) -> PortfolioSnapshot:
+        """Portfoy ekrani icin tek tick'te: liste (+ secili ozet/history/performers).
+
+        - Auth yoksa HIC portfoy istegi atilmaz: ``auth_sections`` icinde
+          ``\"portfolio\"`` (ekran 'fl auth login' uyarisi gosterir).
+        - Toplam hata toleransi: snapshot/history/performers bolum bazli
+          hatalarda ilgili alan ``None`` olur (``errors`` mesaj tasir),
+          PORTFÖY LISTESI KALIR — kismi hata toleransi (plan T-E1).
+        - ``portfolio_id`` verilmezse tek portfoy otomatik secilir; birden
+          fazla portfoy varsa secim ekrana birakilir (``portfolio_id=None``).
+        - ``RateLimitError`` YAYILIR — app interval uzatmasi ve banner icin
+          yakalar (tasarim §4.4).
+        """
+        errors: dict[str, str] = {}
+        auth_sections: set[str] = set()
+        status = await self.get_market_status()
+        if not self.is_authenticated():
+            auth_sections.add("portfolio")
+            return PortfolioSnapshot(
+                portfolio_id=None,
+                summaries=None,
+                summary=None,
+                history=None,
+                performers=None,
+                market_status=status,
+                fetched_at=self._clock(),
+                errors=errors,
+                auth_sections=("portfolio",),
+            )
+        summaries = await self._fetch_section(
+            "portfolios", self.get_portfolio_list(), errors, auth_sections
+        )
+        selected_id = portfolio_id
+        if selected_id is None and isinstance(summaries, list) and len(summaries) == 1:
+            # Tek portfoy: otomatik secim (ekrandan enter beklenmez).
+            selected_id = summaries[0].portfolio_id
+        summary: dict[str, Any] | None = None
+        history: list[dict[str, Any]] | None = None
+        performers: list[PortfolioPosition] | None = None
+        if selected_id is not None:
+            # Parca istekleri PARALEL cekilir; tek tek dusebilir (kismi
+            # tolerans), RateLimitError gather ile yayilir (429'da istek yok).
+            summary, history, performers = await asyncio.gather(
+                self._fetch_section(
+                    "portfolio_snapshot",
+                    self.get_portfolio_snapshot(selected_id),
+                    errors,
+                    auth_sections,
+                ),
+                self._fetch_section(
+                    "portfolio_history",
+                    self.get_portfolio_history(selected_id, period=period),
+                    errors,
+                    auth_sections,
+                ),
+                self._fetch_section(
+                    "portfolio_performers",
+                    self.get_portfolio_performers(selected_id),
+                    errors,
+                    auth_sections,
+                ),
+            )
+        return PortfolioSnapshot(
+            portfolio_id=selected_id,
+            summaries=summaries,
+            summary=summary if isinstance(summary, dict) else None,
+            history=history,
+            performers=performers,
+            market_status=status,
+            fetched_at=self._clock(),
+            errors=errors,
+            auth_sections=tuple(sorted(auth_sections)),
+        )
+
+
+def _portfolio_summary(item: Any) -> PortfolioSummary | None:
+    """Ham liste satirini ``PortfolioSummary``'a cevirir; gecersizse ``None``.
+
+    Alan adlari toleransli: ``id`` veya ``portfolio_id``; ad yoksa id
+    gosterilir (uydurma alan yok — P7 risk notu). ``initial_balance``
+    sayisal degilse ``None``.
+    """
+    if not isinstance(item, dict):
+        return None
+    pid = item.get("id", item.get("portfolio_id"))
+    if pid is None:
+        return None
+    return PortfolioSummary(
+        portfolio_id=str(pid),
+        name=str(item.get("name") or item.get("title") or pid),
+        initial_balance=_to_float_value(item.get("initial_balance")),
+    )
+
+
+def _portfolio_positions(data: Any) -> list[PortfolioPosition] | None:
+    """Performers yanitini ``PortfolioPosition`` listesine cevirir.
+
+    ``{top: [...], bottom: [...]}`` (H5 sozlesmesi) veya duz liste kabul
+    edilir; ekran 'top 5' bilgisi icin ``top`` esas alinir. Giris liste
+    degil ve ``top`` anahtari yoksa ``None`` (ekran 'Veri yok' gosterir).
+    """
+    if isinstance(data, dict):
+        rows = data.get("top")
+    elif isinstance(data, list):
+        rows = data
+    else:
+        return None
+    out: list[PortfolioPosition] = []
+    for item in rows if isinstance(rows, list) else []:
+        if not isinstance(item, dict):
+            continue
+        ticker = item.get("ticker")
+        if not ticker:
+            continue
+        out.append(
+            PortfolioPosition(
+                ticker=str(ticker),
+                return_pct=_to_float_value(
+                    item.get("return_pct", item.get("pnl_pct", item.get("change_pct")))
+                ),
+                pnl=_to_float_value(item.get("pnl", item.get("unrealized_pnl"))),
+            )
+        )
+    return out
+
+
+def _to_float_value(value: Any) -> float | None:
+    """Sayisal degeri float'a cevirir; bool/None/gecersiz -> ``None``."""
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _parse_dt(value: Any) -> datetime | None:
