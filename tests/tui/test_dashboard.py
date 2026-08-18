@@ -177,3 +177,70 @@ def test_help_modal_opens_and_closes(make_app):
             await wait_for(app, lambda: isinstance(app.screen, DashboardScreen))
 
     asyncio.run(run())
+
+
+def test_active_screen_rule_only_active_fetches(make_app):
+    """Aktif ekran kurali (§4.2): tick yalnizca aktif ekranin fetch'ini cagirir.
+
+    Dashboard aktifken fetch_dashboard cagrilir, watchlist'e gecince fetch_dashboard
+    DURUR ve fetch_watchlist konusur; geri donunce dashboard yeniden cagi başlar.
+
+    Not: fetch METHOD'lari sayilir (HTTP degil) — DataHub TTL cache'i
+    istem tarafinda yeniden isteği engelleyebildigi icin kuralin kendisi
+    cagri seviyesinde dogrulanir (keşif #8, Faz D).
+    """
+
+    import time
+
+    async def run() -> None:
+        app = make_app(make_handler())
+        calls = {"dashboard": 0, "watchlist": 0}
+        orig_fd, orig_fw = app.data.fetch_dashboard, app.data.fetch_watchlist
+
+        async def fd(*args: object, **kwargs: object) -> object:
+            calls["dashboard"] += 1
+            return await orig_fd(*args, **kwargs)
+
+        async def fw(*args: object, **kwargs: object) -> object:
+            calls["watchlist"] += 1
+            return await orig_fw(*args, **kwargs)
+
+        app.data.fetch_dashboard, app.data.fetch_watchlist = fd, fw
+
+        async with app.run_test(size=(120, 40)) as pilot:
+            # 1) Dashboard aktif: yuklenene kadar bekle, fetch cagrilmis olmali.
+            await wait_for(app, lambda: _row_count(app, "stats-top") == 3)
+            d_initial = calls["dashboard"]
+            assert d_initial >= 1
+
+            # 2) 2 ile watchlist'e gec: fetch_watchlist cagrilir,
+            #    arka plandaki dashboard'in fetch'i DURUR.
+            await pilot.press("2")
+            deadline = time.monotonic() + 3.0
+            while time.monotonic() < deadline:
+                if (
+                    type(app.screen).__name__ == "WatchlistScreen"
+                    and _row_count(app, "watchlist-table") > 0
+                ):
+                    break
+                await asyncio.sleep(0.05)
+            w1 = calls["watchlist"]
+            assert w1 >= 1, "watchlist aktifken fetch_watchlist cagrilmadi"
+            d_at_switch = calls["dashboard"]
+            await asyncio.sleep(0.35)  # birkac tick (refresh_seconds=0.05)
+            assert calls["dashboard"] == d_at_switch, (
+                "arkadaki dashboard fetch'i durmadi: "
+                f"{d_at_switch} -> {calls['dashboard']}"
+            )
+            assert calls["watchlist"] > w1, "aktif watchlist tiklemeye devam etmiyor"
+
+            # 3) 1 ile don: dashboard fetch'i yeniden baslar.
+            await pilot.press("1")
+            await wait_for(app, lambda: isinstance(app.screen, DashboardScreen))
+            await wait_for(app, lambda: _row_count(app, "stats-top") == 3)
+            await asyncio.sleep(0.35)
+            assert calls["dashboard"] > d_at_switch, (
+                "dashboard geri aktif olunca fetch_dashboard baslamadi"
+            )
+
+    asyncio.run(run())
