@@ -247,6 +247,79 @@ def test_period_colors_flat_or_missing_is_neutral():
     assert charts.period_colors(None, theme) == (None, None)
 
 
+def test_charts_period_return():
+    """Adapter'daki donem getirisi (Faz B'de sparkline kopyasinin yerini alir)."""
+    assert charts.period_return([1, 2, 3]) == 2.0
+    assert charts.period_return([3, 2, 1]) == -2.0
+    assert charts.period_return([5]) is None
+    assert charts.period_return([None, 1, 2]) == 1.0
+
+
+# ----------------------------------------------------------------------
+# normalize / downsample / spark_text — sparkline.py'den tasindi (Y3, Faz B)
+# ----------------------------------------------------------------------
+def test_normalize_min_max():
+    assert charts.normalize([10, 20, 30]) == [0.0, 0.5, 1.0]
+    assert charts.normalize([30, 20, 10]) == [1.0, 0.5, 0.0]
+
+
+def test_normalize_flat_series_to_half():
+    assert charts.normalize([5, 5, 5]) == [0.5, 0.5, 0.5]
+    assert charts.normalize([1, 1]) == [0.5, 0.5]
+
+
+def test_normalize_drops_none_values():
+    assert charts.normalize([None, 0, 100]) == [0.0, 1.0]
+    assert charts.normalize([None, None]) == []
+
+
+def test_normalize_empty():
+    assert charts.normalize([]) == []
+
+
+def test_downsample_keeps_short_series():
+    assert charts.downsample([1, 2, 3], 5) == [1, 2, 3]
+
+
+def test_downsample_reduces_series():
+    out = charts.downsample(list(range(10)), 4)
+    assert len(out) == 4
+    assert out[0] == 0
+    assert out[-1] == 6  # esit aralikli ornekleme (0, 2, 4, 6)
+
+
+def test_downsample_zero_points():
+    assert charts.downsample([1, 2, 3], 0) == []
+
+
+def test_spark_text_produces_block_characters():
+    # normalize + downsample -> 8 seviye blok karakterler (SPARK_CHARS).
+    text = charts.spark_text([10, 20, 30])
+    assert text
+    assert all(ch in charts.SPARK_CHARS for ch in text)
+    # Width siniri: uzun seri width'e orneklenir.
+    assert len(charts.spark_text(list(range(50)), width=12)) <= 12
+
+
+def test_spark_text_empty_returns_em_dash():
+    assert charts.spark_text([]) == "—"
+    assert charts.spark_text([None, None]) == "—"
+
+
+# ----------------------------------------------------------------------
+# T-B1 / P5: height=1 mini line smoke (watchlist trend hucresi)
+# ----------------------------------------------------------------------
+def test_render_line_height_1_smoke():
+    """height=1 line tek satir uretir (ccharts P5 dogrulamasi)."""
+    payload = charts.ohlc_rows(MOCK_ROWS)
+    out = charts.render_line(payload, width=12, height=1)
+    assert out
+    assert out.endswith("\n")
+    assert len(out.strip("\n").split("\n")) == 1
+    # Mini cizgi blok karakterlerle cizilir.
+    assert any(ch in out for ch in "▁▂▃▄▅▆▇█")
+
+
 # ----------------------------------------------------------------------
 # P3: senkron render olcumu (to_thread GEREKMEZ)
 # ----------------------------------------------------------------------

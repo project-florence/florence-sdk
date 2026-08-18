@@ -2,7 +2,8 @@
 
 Layout:
 - Ust bar: piyasa durumu (AÇIK/KAPALI/TATİL) + son guncelleme.
-- Tablo: favori ticker'lari — Ticker / Fiyat / Δ% / Trend (mini sparkline).
+- Tablo: favori ticker'lari — Ticker / Fiyat / Δ% / Trend (ccharts mini cizgi,
+  K2 — Textual Sparkline degil).
   Satir sec + ``enter`` -> ``app.open_detail(ticker)`` (DetailScreen push).
 
 Durumlar (ContentSwitcher): loading / auth (oturum yok veya suresi doldu) /
@@ -16,6 +17,7 @@ Veri mantigi YOKTUR: poll worker'i ``DataHub.fetch_watchlist`` sonucunu
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
@@ -27,9 +29,9 @@ from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import ContentSwitcher, DataTable, Static
 
+from ..charts import ohlc_rows, period_colors, period_return, render_line, single_row
 from ..data import WatchlistSnapshot, delta_style, market_status_text, tr_delta, tr_number
 from ..keys import KEY_OPEN_DETAIL
-from ..widgets import period_return, spark_text, sparkline_color
 
 __all__ = ["WatchlistDataFailed", "WatchlistDataUpdated", "WatchlistScreen"]
 
@@ -54,8 +56,52 @@ class WatchlistDataFailed(Message):
         self.retry_after = retry_after
 
 
-#: Trend sutunu genisligi (mini sparkline karakter sayisi).
+#: Trend sutunu genisligi (mini ccharts line karakter sayisi — K2/P5).
 SPARK_WIDTH = 12
+
+
+def trend_cell(
+    values: Sequence[float | None],
+    theme: dict[str, str] | None,
+    *,
+    width: int = SPARK_WIDTH,
+) -> Text:
+    """Close serisinden ccharts mini cizgi hucresi uretir (Faz B, K2/P5).
+
+    Veri akisi (plan T-B2): ham ``close`` serisi -> OHLC sentezi
+    (``open`` = onceki close; ilk kayitta kendi close'u) -> ``ohlc_rows`` ->
+    ``render_line(height=1, single_color=True)`` -> ``single_row`` (tek satir)
+    -> ``Text.from_ansi`` (renk korunur). Renk TR BIST kuraliyla donem
+    getirisine baglanir (``period_colors``). normalize/downsample'i ccharts
+    kendi yapar (min-max + width ornekleme — P5).
+
+    ``single_color`` rengi SON mumun yonune gore secer; ``open`` = onceki
+    close deseninde son mum yonu = en guncel hareket (close[-1] - close[-2]).
+    Bos/None-only seride ve render hatasinda ``'—'`` hucresi doner.
+    """
+    cleaned = [v for v in values if v is not None]
+    if not cleaned:
+        return Text("—")
+    rows: list[dict[str, Any]] = []
+    prev = cleaned[0]
+    for i, v in enumerate(cleaned):
+        # open = onceki close (ilk: kendi close'u -> duz ilk mum); high/low
+        # sentezini adapter yapar (P2). ts = dizin (show_times kullanilmaz).
+        rows.append({"ts": i, "open": prev, "close": v})
+        prev = v
+    payload = ohlc_rows(rows)
+    rise, fall = period_colors(period_return(cleaned), theme)
+    out = render_line(
+        payload,
+        width=width,
+        height=1,
+        single_color=True,
+        rise=rise,
+        fall=fall,
+    )
+    if not out:
+        return Text("—")
+    return Text.from_ansi(single_row(out))
 
 
 class WatchlistScreen(Screen[None]):
@@ -198,17 +244,13 @@ class WatchlistScreen(Screen[None]):
             return
         table = self.query_one("#watchlist-table", DataTable)
         table.clear()
+        theme = getattr(self.app, "theme_variables", None)
         for row in snap.rows:
-            values = row.close_values
-            spark = Text(
-                spark_text(values, width=SPARK_WIDTH),
-                style=sparkline_color(period_return(values)),
-            )
             table.add_row(
                 row.ticker,
                 tr_number(row.price),
                 Text(tr_delta(row.change_pct), style=delta_style(row.change_pct)),
-                spark,
+                trend_cell(row.close_values, theme),
             )
         switcher.current = "watchlist-table"
 

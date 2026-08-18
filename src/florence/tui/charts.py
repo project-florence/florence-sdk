@@ -31,20 +31,29 @@ grafik 50ms altinda).
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from ccharts import Chart
 
 __all__ = [
+    "SPARK_CHARS",
+    "downsample",
+    "normalize",
     "ohlc_rows",
     "period_colors",
     "period_return",
     "render_candle",
     "render_line",
     "single_row",
+    "spark_text",
     "theme_ansi",
 ]
+
+#: Mini sparkline karakter seti (8 seviye blok — tasarim §5.1). Y3 karari:
+#: Faz B'de ``widgets/sparkline.py``'den buraya tasindi (ccharts downsampling
+#: watchlist'te devraldi ama eski gorunum T-C3'e kadar fallback olarak yasar).
+SPARK_CHARS = "▁▂▃▄▅▆▇█"
 
 
 def _to_float(value: Any) -> float | None:
@@ -111,6 +120,52 @@ def period_return(values: Any) -> float | None:
     if len(cleaned) < 2:
         return None
     return cleaned[-1] - cleaned[0]
+
+
+def normalize(values: Sequence[float | None]) -> list[float]:
+    """Min-max normalizasyon: ``[0,1]``; duz seri -> 0.5; None degerler atilir.
+
+    Y3: ``widgets/sparkline.py``'den Faz B'de tasindi (Faz C'deki T-C3
+    temizliginde eski kopya silinir; bu modul tek kaynak olur).
+    """
+    cleaned = [float(v) for v in values if v is not None]
+    if not cleaned:
+        return []
+    lo = min(cleaned)
+    hi = max(cleaned)
+    if hi == lo:
+        return [0.5] * len(cleaned)
+    span = hi - lo
+    return [(v - lo) / span for v in cleaned]
+
+
+def downsample(values: Sequence[float], max_points: int) -> list[float]:
+    """Seriyi en fazla ``max_points`` noktaya esit aralikli ornekler."""
+    if max_points <= 0 or not values:
+        return []
+    n = len(values)
+    if n <= max_points:
+        return list(values)
+    step = n // max_points
+    return [values[i * step] for i in range(max_points)]
+
+
+def spark_text(values: Sequence[float | None], width: int = 12) -> str:
+    """DataTable hucresi icin mini sparkline metni (blok karakter).
+
+    ``normalize`` + ``downsample`` ile seriyi ``width`` sutuna ornekler ve
+    her noktayi 8 seviyeli blok karaktere cevirir (tasarim §5.2). Bos
+    seride ``'—'`` doner. Watchlist yeni ccharts line'i kullanir (K2); bu
+    fonksiyon T-C3'e kadar fallback olarak yasar.
+    """
+    norm = normalize(values)
+    if not norm:
+        return "—"
+    sampled = downsample(norm, max_points=width)
+    return "".join(
+        SPARK_CHARS[min(int(v * len(SPARK_CHARS)), len(SPARK_CHARS) - 1)]
+        for v in sampled
+    )
 
 
 def _render(kind: str, payload: str, width: int, height: int, **kwargs: Any) -> str:

@@ -1,13 +1,12 @@
-"""SparklineChart — Textual ``Sparkline`` sarmalayicisi (karar K2).
+"""SparklineChart — Textual ``Sparkline`` sarmalayicisi (T-C3'te kaldirilacak).
 
-- ``normalize``: ``price_history`` ``close`` serisini min-max ile ``[0,1]``'e
-  ceker; duz seri (max == min) 0.5'e sabitlenir (bolunme hatasi yok).
-  Eksik ``close`` (None) kayitlari atilir (backend ara tatil gunu bos birakir).
-- ``downsample``: terminal genisligine gore ornekleme — her sutuna 1 nokta;
-  kisa seri aynen korunur (tasarim §5.2).
-- Renk: donem getirisine (ilk vs son close) gore yesil (yukari) / kirmizi
-  (asagi) — TR BIST konvansiyonu (tasarim §5.3). Renkler tema degiskenlerinden
-  gelir (``$success`` / ``$error``), dark/light temada otomatik uyum saglar.
+Faz B (Y3) notu: saf yardimcilar (``normalize``, ``downsample``,
+``spark_text``, ``SPARK_CHARS``, ``period_return``) ``tui/charts.py``'ye
+tasindi — bu modul bunlari oradan yeniden export eder (``widgets/__init__.py``
+ve eski cagrilar kesintisiz calisir). ``SparklineChart`` ve ``sparkline_color``
+(``$success``/``$error``/``$foreground`` tema degiskeni) watchlist ccharts'a
+gecse de detail ekrani Faz C'ye kadar bu widget'i kullandigi icin KALIR;
+T-C3'te tüm dosya ile birlikte silinir.
 """
 
 from __future__ import annotations
@@ -17,6 +16,14 @@ from typing import Any
 
 from textual.app import ComposeResult
 from textual.widgets import Sparkline, Static
+
+from ..charts import (
+    SPARK_CHARS,  # noqa: F401  # re-export (Y3)
+    downsample,  # noqa: F401
+    normalize,  # noqa: F401
+    period_return,  # noqa: F401
+    spark_text,  # noqa: F401
+)
 
 __all__ = [
     "SPARK_CHARS",
@@ -28,64 +35,12 @@ __all__ = [
     "sparkline_color",
 ]
 
-#: Mini sparkline karakter seti (8 seviye blok — tasarim §5.1, K2).
-SPARK_CHARS = "▁▂▃▄▅▆▇█"
-
-
-def normalize(values: Sequence[float | None]) -> list[float]:
-    """Min-max normalizasyon: ``[0,1]``; duz seri -> 0.5; None degerler atilir."""
-    cleaned = [float(v) for v in values if v is not None]
-    if not cleaned:
-        return []
-    lo = min(cleaned)
-    hi = max(cleaned)
-    if hi == lo:
-        return [0.5] * len(cleaned)
-    span = hi - lo
-    return [(v - lo) / span for v in cleaned]
-
-
-def downsample(values: Sequence[float], max_points: int) -> list[float]:
-    """Seriyi en fazla ``max_points`` noktaya esit aralikli ornekler."""
-    if max_points <= 0 or not values:
-        return []
-    n = len(values)
-    if n <= max_points:
-        return list(values)
-    step = n // max_points
-    return [values[i * step] for i in range(max_points)]
-
-
-def period_return(values: Sequence[float | None]) -> float | None:
-    """Donem getirisi: (son - ilk) close. Yetersiz veride ``None``."""
-    cleaned = [float(v) for v in values if v is not None]
-    if len(cleaned) < 2:
-        return None
-    return cleaned[-1] - cleaned[0]
-
 
 def sparkline_color(return_value: float | None) -> str:
     """TR BIST renk kurali: yukari ``$success`` / asagi ``$error`` / duz gri."""
     if return_value is None or return_value == 0:
         return "$foreground"
     return "$success" if return_value > 0 else "$error"
-
-
-def spark_text(values: Sequence[float | None], width: int = 12) -> str:
-    """DataTable hucresi icin mini sparkline metni (blok karakter).
-
-    ``normalize`` + ``downsample`` ile seriyi ``width`` sutuna ornekler ve
-    her noktayi 8 seviyeli blok karaktere cevirir (tasarim §5.2). Bos
-    seride ``'—'`` doner.
-    """
-    norm = normalize(values)
-    if not norm:
-        return "—"
-    sampled = downsample(norm, max_points=width)
-    return "".join(
-        SPARK_CHARS[min(int(v * len(SPARK_CHARS)), len(SPARK_CHARS) - 1)]
-        for v in sampled
-    )
 
 
 class SparklineChart(Static):

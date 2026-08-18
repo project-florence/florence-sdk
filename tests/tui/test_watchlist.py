@@ -1,9 +1,10 @@
 """IZLEME LISTESI ekrani + fetch_watchlist testleri (TAMAMEN OFFLINE).
 
 Tasarim §8: mock transport'lu client + ``FlorenceTUI`` -> ``run_test``.
-Kapsam: mock veriyle render (fiyat/Δ%/sparkline), bos watchlist, auth yok
-uyarisi, kismi fiyat hatasi toleransi, satir sec -> detay acilisi ve
-``DataHub.fetch_watchlist`` birim testleri.
+Kapsam: mock veriyle render (fiyat/Δ%/trend — ccharts mini line, K2), bos
+watchlist, auth yok uyarisi, kismi fiyat hatasi toleransi, satir sec -> detay
+acilisi, ``trend_cell`` saf fonksiyonu ve ``DataHub.fetch_watchlist`` birim
+testleri.
 
 Not: App.query() push edilmis ekrani gormez (Textual 8.x) — widget
 sorgulari ``app.screen`` uzerinden yapilir.
@@ -19,9 +20,27 @@ from textual.widgets import ContentSwitcher, DataTable, Static
 from florence import AsyncFlorenceClient, MemoryTokenStore
 from florence.tui.data import DataHub
 from florence.tui.screens.detail import DetailScreen
-from florence.tui.screens.watchlist import WatchlistScreen
+from florence.tui.screens.watchlist import WatchlistScreen, trend_cell
 
 from .conftest import make_handler, wait_for
+
+#: Trend hucresi renk testi icin tema (P4 kofrusu — gercek tema degil).
+TEST_THEME = {"success": "#1a8a5c", "error": "#dc322f"}
+
+#: ccharts line ciktisindaki 8 seviye blok karakterler (K2/P5).
+_BLOCK_CHARS = "▁▂▃▄▅▆▇█"
+
+
+def _has_block_chars(cell) -> bool:
+    return any(ch in str(cell) for ch in _BLOCK_CHARS)
+
+
+def _has_color_span(cell) -> bool:
+    """Rich Text span'larinda on plan rengi var mi (Rich 15: ``Style.color``)."""
+    return any(
+        getattr(span.style, "color", None) is not None
+        for span in getattr(cell, "spans", ())
+    )
 
 
 def _row_count(app, table_id: str) -> int:
@@ -60,8 +79,11 @@ def test_watchlist_renders_favorites_with_prices_and_sparkline(make_app):
             assert str(row0[0]) == "THYAO"
             assert str(row0[1]) == "313,40"  # TR format
             assert str(row0[2]) == "+0,93%"
-            # Sparkline: MOCK_HISTORY close'lari [310, 313.4, 312] -> ▁█▅
-            assert str(row0[3]) == "▁█▅"
+            # Trend: ccharts height=1 mini line (K2 — Sparkline degil).
+            # Render davranisina dayali: blok karakterler + renkli span.
+            assert _has_block_chars(row0[3])
+            assert "\n" not in str(row0[3])  # tek satir (DataTable hucresi)
+            assert _has_color_span(row0[3])
             row1 = list(table.get_row_at(1))
             assert str(row1[0]) == "ASELS"
             assert str(row1[1]) == "1.234,50"
@@ -138,6 +160,35 @@ def test_watchlist_enter_opens_detail(make_app):
             assert app.screen.ticker == "THYAO"
 
     asyncio.run(run())
+
+
+# ----------------------------------------------------------------------
+# trend_cell birim testleri (saf fonksiyon — Faz B, K2/P5)
+# ----------------------------------------------------------------------
+def test_trend_cell_renders_ccharts_mini_line():
+    """Close serisi -> ccharts height=1 line hucresi: blok + renkli tek satir."""
+    cell = trend_cell([310.0, 313.4, 312.0], TEST_THEME)
+    assert _has_block_chars(cell)
+    assert "\n" not in str(cell)  # DataTable hucresi tek satir
+    assert _has_color_span(cell)  # single_color: ANSI -> Text span
+
+
+def test_trend_cell_empty_values_returns_em_dash():
+    assert str(trend_cell([], TEST_THEME)) == "—"
+    assert str(trend_cell([None, None], TEST_THEME)) == "—"
+
+
+def test_trend_cell_without_theme_uses_ccharts_defaults():
+    # Tema yoksa period_colors (None, None) -> ccharts default renkler (P4
+    # fallback). Hucresi yine cizilir (blok karakterler var).
+    cell = trend_cell([10.0, 20.0, 30.0], None)
+    assert _has_block_chars(cell)
+    assert _has_color_span(cell)
+
+
+def test_trend_cell_respects_width():
+    cell = trend_cell([10.0, 20.0, 30.0], TEST_THEME, width=6)
+    assert _has_block_chars(cell)
 
 
 # ----------------------------------------------------------------------
