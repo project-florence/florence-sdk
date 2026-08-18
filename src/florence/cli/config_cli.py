@@ -41,7 +41,7 @@ ALLOWED_KEYS = frozenset(
         "tui_market_closed_refresh",
         "tui_watchlist_source",
         "tui_top_limit",
-        "tui_summary_limit", (feat(cli+tui): config allowlist genisletmesi — tui_market_closed_refresh/tui_default_chart/tui_watchlist_source (P8)/tui_top_limit/tui_summary_limit + DataHub limitleri config'ten (keşif #5/#6) + bayat PART 2/allowlist notlari temizligi — 351 test, ruff temiz)
+        "tui_summary_limit",
     }
 )
 
@@ -167,7 +167,6 @@ class CliConfig:
                 ) from None
             # 60-3600 arasi kabul; disi clamp (K4).
             value = str(max(TUI_CLOSED_REFRESH_MIN, min(TUI_CLOSED_REFRESH_MAX, n)))
- (feat(cli+tui): config allowlist genisletmesi — tui_market_closed_refresh/tui_default_chart/tui_watchlist_source (P8)/tui_top_limit/tui_summary_limit + DataHub limitleri config'ten (keşif #5/#6) + bayat PART 2/allowlist notlari temizligi — 351 test, ruff temiz)
         elif key == "tui_default_chart" and value not in TUI_DEFAULT_CHARTS:
             raise typer.UsageError(
                 f"tui_default_chart değeri '{value}' geçersiz; line|candle olmalı"
@@ -185,7 +184,7 @@ class CliConfig:
                 ) from None
             # 1-50 arasi kabul; disi clamp.
             value = str(max(TUI_LIMIT_MIN, min(TUI_LIMIT_MAX, n)))
- (feat(cli+tui): config allowlist genisletmesi — tui_market_closed_refresh/tui_default_chart/tui_watchlist_source (P8)/tui_top_limit/tui_summary_limit + DataHub limitleri config'ten (keşif #5/#6) + bayat PART 2/allowlist notlari temizligi — 351 test, ruff temiz)
+
         self._data[key] = value
         self._save()
 

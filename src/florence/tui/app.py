@@ -61,7 +61,7 @@ def _valid_chart(value: Any) -> str:
     if value in keys.CHART_LABELS:
         return str(value)
     return keys.DEFAULT_CHART
- (feat(cli+tui): config allowlist genisletmesi — tui_market_closed_refresh/tui_default_chart/tui_watchlist_source (P8)/tui_top_limit/tui_summary_limit + DataHub limitleri config'ten (keşif #5/#6) + bayat PART 2/allowlist notlari temizligi — 351 test, ruff temiz)
+
 
 
 class HelpModal(ModalScreen[None]):
@@ -137,7 +137,6 @@ class FlorenceTUI(App[None]):
         default_period: str | None = None,
         default_chart: str | None = None,
         market_closed_refresh: float | None = None,
-        default_chart: str | None = None,
         ttl_overrides: dict[str, float] | None = None,
     ) -> None:
         super().__init__()
