@@ -29,6 +29,7 @@ from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import ContentSwitcher, DataTable, Static
 
+from ..banner import banner_text
 from ..data import (
     DashboardSnapshot,
     delta_style,
@@ -159,6 +160,10 @@ class DashboardScreen(Screen[None]):
     DashboardScreen {
         background: $surface;
     }
+    #banner-art {
+        padding: 0 1;
+        text-style: bold;
+    }
     #status-bar {
         padding: 0 1;
         text-style: bold;
@@ -187,9 +192,13 @@ class DashboardScreen(Screen[None]):
         super().__init__()
         self._movers_sort = "gainers"
         self._last_snapshot: DashboardSnapshot | None = None
+        #: Banner yalnizca ILK acilista cizilir (B2) — sonraki mount'larda
+        #: yeniden render edilmez (icerik ayni; flag idempotent kilma).
+        self._banner_set = False
 
     def compose(self) -> ComposeResult:
         with Vertical(id="dashboard-root"):
+            yield Static("", id="banner-art")
             yield Static("Piyasa durumu yükleniyor…", id="status-bar")
             yield Static("", id="banner")
             with Horizontal(id="panels-row"):
@@ -206,6 +215,18 @@ class DashboardScreen(Screen[None]):
                     id="movers-panel",
                 )
             yield Static("", id="economy-strip")
+
+    # ------------------------------------------------------------------
+    # Yasam dongusu
+    # ------------------------------------------------------------------
+    def on_mount(self) -> None:
+        # Acilis banner'i (B2): yalnizca ilk mount'ta, tema renkleriyle.
+        # Poll tick'leri bu widget'a dokunmaz — veri update'leri yalnizca
+        # #status-bar / panelleri gunceller.
+        if not self._banner_set:
+            self._banner_set = True
+            art = self.query_one("#banner-art", Static)
+            art.update(Text.from_ansi(banner_text(self.app.theme_variables)))
 
     # ------------------------------------------------------------------
     # Mesaj handler'lari
