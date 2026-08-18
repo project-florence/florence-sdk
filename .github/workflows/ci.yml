@@ -1,0 +1,37 @@
+# CI (P9) — ruff check + pytest, 3.12/3.13 matrix, uv cache.
+# Süre bütçesi: ~89s (lokal ölçüm; matrix iki job paralel koşar).
+# Zaman-bağımlı testler dinamiktir (conftest _NEXT_OPEN_AT = bugüne +1 gün) —
+# matrix'te güne bağlı flake riski yok.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Sync dependencies
+        run: uv sync --frozen
+
+      - name: Lint (ruff)
+        run: uv run ruff check src tests
+
+      - name: Test (pytest, live hariç)
+        run: uv run pytest tests/ -m "not live"
