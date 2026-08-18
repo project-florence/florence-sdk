@@ -129,6 +129,11 @@ wheels = [
 ]
 
 [[package]]
+name = "ccharts"
+version = "0.2.0"
+source = { directory = "/home/efe/Belgeler/ccharts" }
+
+[[package]]
 name = "certifi"
 version = "2026.7.22"
 source = { registry = "https://pypi.org/simple" }
@@ -579,6 +584,7 @@ name = "florence-sdk"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "ccharts" },
     { name = "cryptography" },
     { name = "fastmcp" },
     { name = "httpx" },
@@ -604,6 +610,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "ccharts", directory = "/home/efe/Belgeler/ccharts" },
     { name = "cryptography", specifier = ">=42" },
     { name = "fastmcp", specifier = ">=2.0" },
     { name = "httpx", specifier = ">=0.27" },

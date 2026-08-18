@@ -33,6 +33,10 @@ dependencies = [
     "rich>=13.7",
     "cryptography>=42",
     "textual>=0.60",
+    # P1 (onaylandi): ccharts zorunlu ana bagimlilik. PyPI yayini yapilana
+    # kadar (v0.2.0) gecici path bagimliligi (T-A1 notu: Riski P1). Yayin
+    # sonrasi Faz F'de "ccharts>=0.2.0"a donulur.
+    "ccharts @ file:///home/efe/Belgeler/ccharts",
 ]
 
 [project.urls]
@@ -60,6 +64,11 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+# P1 gecici path bagimliligi icin gerekli (Riski P1 notu):
+# PyPI yayini sonrasi "ccharts>=0.2.0"a gecince bu anahtar kaldirilabilir.
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/florence", "src/florence_mcp"]
