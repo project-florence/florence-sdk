@@ -42,6 +42,7 @@ __all__ = [
     "error_message",
     "gold_summary",
     "market_status_text",
+    "status_bar_text",
     "tr_delta",
     "tr_number",
 ]
@@ -182,6 +183,16 @@ def market_status_text(status: dict[str, Any] | None) -> str:
         if nxt:
             state += f" · {_format_open_time(nxt)}'da açılacak"
     return f"Piyasa: {state}"
+
+
+def status_bar_text(status: dict[str, Any] | None, fetched_at: datetime) -> str:
+    """Ust bar satiri: piyasa durumu + son guncelleme (Faz D — DRY).
+
+    Dashboard/watchlist/detail ekranlari bu ortak yardimciyi kullanir;
+    ``market_status_text`` tek kaynak (keşif #2: dashboard'daki kopya
+    implementasyon kaldirildi).
+    """
+    return f"{market_status_text(status)}  ·  Son güncelleme: {fetched_at:%H:%M:%S}"
 
 
 def _format_open_time(raw: Any) -> str:

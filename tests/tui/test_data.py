@@ -19,6 +19,7 @@ from florence.tui.data import (
     delta_style,
     error_message,
     gold_summary,
+    status_bar_text,
     tr_delta,
     tr_number,
 )
@@ -291,3 +292,31 @@ def test_error_message_mapping():
     from florence.errors import NetworkError
 
     assert error_message(NetworkError("x")) == "Bağlantı hatası"
+
+
+# ----------------------------------------------------------------------
+# Status bar (Faz D — DRY: dashboard/watchlist/detail ortak yardimci)
+# ----------------------------------------------------------------------
+def test_status_bar_text_open_with_update_time():
+    fetched = datetime(2026, 8, 18, 12, 30, 45, tzinfo=UTC)
+    text = status_bar_text(MOCK_STATUS_OPEN, fetched)
+    assert "AÇIK" in text
+    assert "Son güncelleme: 12:30:45" in text
+
+
+def test_status_bar_text_closed_shows_next_open():
+    fetched = datetime(2026, 8, 18, 12, 30, 45, tzinfo=UTC)
+    closed = {"open": False, "next_open_at": "2026-08-19T10:00:00+03:00", "holiday": False}
+    text = status_bar_text(closed, fetched)
+    assert "KAPALI" in text
+    assert "10:00'da açılacak" in text
+    assert "Son güncelleme: 12:30:45" in text
+
+
+def test_status_bar_text_holiday_and_invalid():
+    fetched = datetime(2026, 8, 18, 12, 30, 45, tzinfo=UTC)
+    holiday = {"open": True, "holiday": True, "next_open_at": None}
+    assert "TATİL" in status_bar_text(holiday, fetched)
+    # None/dict-olmayan -> alinamadi; bos dict -> kapali (dict kabul edilir)
+    assert "alınamadı" in status_bar_text(None, fetched)
+    assert "KAPALI" in status_bar_text({}, fetched)

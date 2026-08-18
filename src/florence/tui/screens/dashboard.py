@@ -29,7 +29,14 @@ from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import ContentSwitcher, DataTable, Static
 
-from ..data import DashboardSnapshot, delta_style, gold_summary, tr_delta, tr_number
+from ..data import (
+    DashboardSnapshot,
+    delta_style,
+    gold_summary,
+    status_bar_text,
+    tr_delta,
+    tr_number,
+)
 from ..keys import KEY_GAINERS, KEY_LOSERS, KEY_OPEN_DETAIL, KEY_TOGGLE_MOVERS
 
 __all__ = ["DashboardDataFailed", "DashboardDataUpdated", "DashboardScreen"]
@@ -255,19 +262,7 @@ class DashboardScreen(Screen[None]):
 
     def _render_status(self, status: dict[str, Any] | None, fetched_at: datetime) -> None:
         bar = self.query_one("#status-bar", Static)
-        if not isinstance(status, dict):
-            bar.update("[grey]Piyasa durumu alınamadı[/]")
-            return
-        if status.get("holiday"):
-            state = "[yellow]TATİL[/]"
-        elif status.get("open"):
-            state = "[green]AÇIK[/]"
-        else:
-            state = "[red]KAPALI[/]"
-            nxt = status.get("next_open_at")
-            if nxt:
-                state += f" · {_format_open_time(nxt)}'da açılacak"
-        bar.update(f"Piyasa: {state}  ·  Son güncelleme: {fetched_at:%H:%M:%S}")
+        bar.update(status_bar_text(status, fetched_at))
 
     def _render_stats_panel(self, snap: DashboardSnapshot) -> None:
         panel = self.query_one("#stats-panel", DataPanel)
@@ -369,12 +364,3 @@ class DashboardScreen(Screen[None]):
             return list(table.get_row_at(table.cursor_row))
         except Exception:  # pragma: no cover — satir kaybolmus olabilir
             return None
-
-
-def _format_open_time(raw: Any) -> str:
-    """ISO next_open_at -> yerel saat ('10:00'); gecersizse ham metin."""
-    try:
-        dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
-        return dt.astimezone().strftime("%H:%M")
-    except ValueError:
-        return str(raw)

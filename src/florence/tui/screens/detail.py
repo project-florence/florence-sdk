@@ -34,7 +34,7 @@ from textual.screen import Screen
 from textual.widgets import Static
 
 from .. import keys
-from ..data import DetailSnapshot, delta_style, market_status_text, tr_delta, tr_number
+from ..data import DetailSnapshot, delta_style, status_bar_text, tr_delta, tr_number
 from ..keys import KEY_BACK, KEY_CHART_TOGGLE
 from ..widgets import CChartLine
 
@@ -235,7 +235,7 @@ class DetailScreen(Screen[None]):
 
     def _render_status(self, status: dict[str, Any] | None, fetched_at: datetime) -> None:
         bar = self.query_one("#detail-status", Static)
-        bar.update(f"{market_status_text(status)}  ·  Son güncelleme: {fetched_at:%H:%M:%S}")
+        bar.update(status_bar_text(status, fetched_at))
 
     def _render_info(self, snap: DetailSnapshot) -> None:
         info = self.query_one("#detail-info", Static)
