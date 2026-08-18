@@ -135,9 +135,10 @@ def test_dashboard_toggle_gainers_losers(make_app):
 
 def test_dashboard_closed_market_status_bar(make_app):
     async def run() -> None:
-        handler = make_handler(
-            status_json={"open": False, "next_open_at": "2026-08-15T10:00:00+03:00", "holiday": False}
-        )
+        # Dinamik next_open_at (conftest): sabit gecmis tarih K4 poll planlamasini
+        # (next_poll_delay > 45) 30s alt sinirina dusurdugunden bugune gore +1 gun
+        # / 10:00 kullanilir — zaman-bagimsiz.
+        handler = make_handler(status_open=False)
         app = make_app(handler)
         async with app.run_test(size=(120, 40)):
             await wait_for(app, lambda: "KAPALI" in _text(app, "status-bar"))

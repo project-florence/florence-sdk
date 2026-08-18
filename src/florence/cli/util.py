@@ -11,6 +11,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import typer
+
 #: BIST ticker bicimi (aliases dahil): THYAO, XU100, .E sonekleri vb.
 _TICKER_RE = re.compile(r"^[A-Z0-9.\-]{1,12}$")
 
@@ -57,6 +59,61 @@ def parse_period(period: str) -> str:
         number, unit = match.groups()
         unit = "mo" if unit == "m" else unit
         return f"{number}{unit}"
+    return p
+
+
+#: Backend aralik limitleri (kaynak: backend src/services/price.py
+#: ``_MAX_PERIOD_FOR_INTERVAL``): 5m/15m/30m -> 60 gun (Yahoo Finance siniri),
+#: 1h -> 730 gun, 1d+ -> 3650 gun. Ustunde istek backend'de 400 hata dondurur.
+INTERVAL_MAX_DAYS: dict[str, int] = {
+    "1m": 7,
+    "5m": 60,
+    "15m": 60,
+    "30m": 60,
+    "1h": 730,
+    "1d": 3650,
+    "5d": 3650,
+    "1wk": 3650,
+    "1mo": 3650,
+    "3mo": 3650,
+}
+
+
+def _period_days(period: str) -> int | None:
+    """Period'in gun karsiligini doner; taninmayan deger ``None``."""
+    p = period.strip().lower()
+    if p == "ytd":
+        return 366
+    if p == "max":
+        return 3650
+    m = re.fullmatch(r"(\d+)(mo|y|w|d)", p)
+    if not m:
+        return None
+    n = int(m.group(1))
+    return {"mo": 30, "y": 365, "w": 7, "d": 1}[m.group(2)] * n
+
+
+def validate_history_request(period: str, interval: str) -> str:
+    """Period+interval'i backend limitlerine karsi dogrular (net hata).
+
+    Backend'in ham ``400 Invalid period`` mesaji yerine kullaniciya hangi
+    araligin kac gun destekledigini soyler. Normalize edilmis period'u
+    dondurur (``3m`` -> ``3mo``).
+    """
+    p = parse_period(period)
+    iv = interval.strip().lower()
+    max_days = INTERVAL_MAX_DAYS.get(iv)
+    if max_days is None:
+        raise typer.BadParameter(
+            f"Geçersiz aralık: '{interval}' — desteklenen: "
+            "1m, 5m, 15m, 30m, 1h, 1d, 5d, 1wk, 1mo, 3mo"
+        )
+    days = _period_days(p)
+    if days is not None and days > max_days:
+        raise typer.BadParameter(
+            f"'{iv}' aralığı en fazla {max_days} günlük periyot destekler "
+            f"({p} = {days} gün). Daha kısa bir periyot kullanın (örn. 1mo)."
+        )
     return p
 
 

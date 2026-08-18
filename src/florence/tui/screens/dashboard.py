@@ -284,8 +284,9 @@ class DashboardScreen(Screen[None]):
         table.clear()
         for i, row in enumerate(snap.stats_top):
             ticker = str(row.get("ticker", "—"))
-            count = row.get("count") or 0
-            cell = Text(str(count), style="$primary" if i == 0 else "")
+            # Gercek backend semasi: {"ticker", "name", ..., "total"} — toplam ilgi.
+            total = row.get("total") or 0
+            cell = Text(str(total), style="$primary" if i == 0 else "")
             table.add_row(ticker, cell)
         panel.set_state("table")
 
@@ -306,7 +307,8 @@ class DashboardScreen(Screen[None]):
         table.clear()
         for row in rows:
             ticker = str(row.get("ticker", "—"))
-            price = tr_number(row.get("price"))
+            # Gercek backend semasi: "last_price" (companies/summary).
+            price = tr_number(row.get("last_price"))
             delta = tr_delta(row.get("change_pct"))
             table.add_row(ticker, price, Text(delta, style=delta_style(row.get("change_pct"))))
         panel.set_state("table")

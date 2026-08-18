@@ -20,6 +20,7 @@ loop'u bloklar). Testlerde ``httpx.MockTransport``'lu client inject edilir.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -442,7 +443,12 @@ class DataHub:
         if cached is not self._CACHE_MISS:
             return cached
         data = await self._client.market.companies_summary(limit=limit, sort=sort)
-        rows = data if isinstance(data, list) else []
+        if isinstance(data, dict):
+            # Backend {"data": [...], "total": n} dondurur — TUI listeyi kullanir.
+            inner = data.get("data")
+            rows = inner if isinstance(inner, list) else []
+        else:
+            rows = data if isinstance(data, list) else []
         return self._set_cached(key, rows)
 
     async def get_gold_prices(self) -> list[dict[str, Any]] | None:
@@ -543,21 +549,22 @@ class DataHub:
         status = await self.get_market_status()
         sections: dict[str, Any] = {}
         if authed:
-            sections["stats_top"] = await self._fetch_section(
-                "stats_top", self.get_stats_top(), errors
+            # Bolumler PARALEL cekilir: yavas bir bolum (orn. companies/summary
+            # tam hesaplama) tum panoyu bloklamasin. RateLimitError gather ile
+            # yayilir (tasarim: 429'da istek yapilmaz).
+            names = ("stats_top", "gainers", "losers", "gold", "currency")
+            results = await asyncio.gather(
+                self._fetch_section("stats_top", self.get_stats_top(), errors),
+                self._fetch_section(
+                    "gainers", self.get_companies_summary("gainers"), errors
+                ),
+                self._fetch_section(
+                    "losers", self.get_companies_summary("losers"), errors
+                ),
+                self._fetch_section("gold", self.get_gold_prices(), errors),
+                self._fetch_section("currency", self.get_currency(), errors),
             )
-            sections["gainers"] = await self._fetch_section(
-                "gainers", self.get_companies_summary("gainers"), errors
-            )
-            sections["losers"] = await self._fetch_section(
-                "losers", self.get_companies_summary("losers"), errors
-            )
-            sections["gold"] = await self._fetch_section(
-                "gold", self.get_gold_prices(), errors
-            )
-            sections["currency"] = await self._fetch_section(
-                "currency", self.get_currency(), errors
-            )
+            sections = dict(zip(names, results, strict=True))
         return DashboardSnapshot(
             market_status=status,
             stats_top=sections.get("stats_top"),

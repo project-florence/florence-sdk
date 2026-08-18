@@ -611,7 +611,9 @@ def test_macro_briefing_missing_auth_raises() -> None:
         respx.get(f"{P}/economy/currency").mock(
             return_value=httpx.Response(401, json={"detail": "not_authenticated"})
         )
-        client = FlorenceClient()
+        # Bos store: refresh token da yok -> 401 sonrasi otomatik refresh, HTTP
+        # istegi ATILMADAN AuthError yukseltir (keyring/makine bagimsiz).
+        client = FlorenceClient(token_store=MemoryTokenStore())
         with pytest.raises(AuthError):
             macro_briefing(client)
 

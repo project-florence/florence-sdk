@@ -195,6 +195,11 @@ class FlorenceTUI(App[None]):
         return self._poll_worker
 
     async def _poll(self) -> None:
+        # Textual 8.x: worker mount sirasinda erken baslarsa screen stack henuz
+        # bos olabilir (self.screen okumak ScreenStackError firlatir). Ekran yoksa
+        # bu tick atlanir — _schedule_next() yine de bir sonraki tik'i kurar.
+        if not self.screen_stack:
+            return
         screen = self.screen
         try:
             if isinstance(screen, DashboardScreen):

@@ -7,7 +7,7 @@ Kapsam:
   chmod 600, anahtar/bozuk dosya -> AuthError.
 - Her grup en az 1 komut (auth, account, market, economy, portfolio,
   analysis, bots, export, misc, config).
-- ``fl price history ASELS 3mo 5m`` konumsal period/interval.
+- ``fl price history ASELS 1mo 5m`` konumsal period/interval (5m siniri: 60 gun).
 - ``fl download`` CSV icerik + varsayilan dosya adi.
 - ``--json`` ciktilari ``json.loads`` ile dogrulanir; hatalar stderr'de
   ``{error: {code, status, detail}}`` biciminde.
@@ -461,33 +461,46 @@ def test_export_fetch_composite(
 def test_flat_price_history_positional_period_interval(
     monkeypatch: pytest.MonkeyPatch, cli_env: dict[str, str]
 ) -> None:
-    """fl price history ASELS 3mo 5m -> period=3mo&interval=5m (konumsal)."""
+    """fl price history ASELS 1mo 5m -> period=1mo&interval=5m (konumsal)."""
     with respx.mock:
         route = respx.get(url__regex=r".*/price/history/ASELS.*").mock(
             return_value=httpx.Response(200, json=[{"ts": "2026-08-01", "close": 42.5}])
         )
         code, out, err = run_cli(
-            monkeypatch, ["price", "history", "ASELS", "3mo", "5m", "--json"], env=cli_env
+            monkeypatch, ["price", "history", "ASELS", "1mo", "5m", "--json"], env=cli_env
         )
     assert code == 0
     assert json.loads(out)[0]["close"] == 42.5
     request = route.calls.last.request
-    assert request.url.params["period"] == "3mo"
+    assert request.url.params["period"] == "1mo"
     assert request.url.params["interval"] == "5m"
 
 
-def test_flat_price_history_normalizes_3m_to_3mo(
+def test_flat_price_history_normalizes_1m_to_1mo(
     monkeypatch: pytest.MonkeyPatch, cli_env: dict[str, str]
 ) -> None:
+    """fl price history THYAO 1m 5m -> period normalizes 1m->1mo (sinir ici)."""
     with respx.mock:
         route = respx.get(url__regex=r".*/price/history/THYAO.*").mock(
             return_value=httpx.Response(200, json=[])
         )
         code, out, err = run_cli(
-            monkeypatch, ["price", "history", "THYAO", "3m", "5m", "--json"], env=cli_env
+            monkeypatch, ["price", "history", "THYAO", "1m", "5m", "--json"], env=cli_env
         )
     assert code == 0
-    assert route.calls.last.request.url.params["period"] == "3mo"
+    assert route.calls.last.request.url.params["period"] == "1mo"
+
+
+def test_flat_price_history_rejects_over_limit_period(
+    monkeypatch: pytest.MonkeyPatch, cli_env: dict[str, str]
+) -> None:
+    """3mo (90 gun) + 5m (limit 60 gun) -> net hata; backend'e istek gitmez."""
+    code, out, err = run_cli(
+        monkeypatch, ["price", "history", "THYAO", "3mo", "5m", "--json"], env=cli_env
+    )
+    assert code == 2
+    assert "60 gün" in err
+    assert "3mo" in err
 
 
 def test_flat_price_shortcut_current(monkeypatch: pytest.MonkeyPatch, cli_env: dict[str, str]) -> None:

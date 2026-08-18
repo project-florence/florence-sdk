@@ -17,7 +17,13 @@ from .context import CliState
 from .interactive import CliRuntimeError
 from .options import json_opt, verbose_opt
 from .output import emit_json, normalize_economy, render_data
-from .util import default_download_path, extract_rows, normalize_ticker, parse_period, write_csv
+from .util import (
+    default_download_path,
+    extract_rows,
+    normalize_ticker,
+    validate_history_request,
+    write_csv,
+)
 
 __all__ = ["download_impl", "economy_app", "market_app", "price_app"]
 
@@ -72,7 +78,7 @@ def market_history(
     json_output: bool = json_opt(),
     verbose: bool = verbose_opt(),
 ) -> None:
-    """Fiyat geçmişi (mum verisi, public). Varsayılan: 3mo / 5m."""
+    """Fiyat geçmişi (mum verisi, public). Varsayılan: 1mo / 5m (5m limit: 60 gün)."""
     state = _state(ctx)
     state.apply_flags(json_output, verbose)
     _price_history(state, ticker, period, interval, period_opt, interval_opt)
@@ -87,8 +93,8 @@ def _price_history(
     interval_opt: str | None = None,
 ) -> None:
     t = normalize_ticker(ticker)
-    period = parse_period(period_arg or period_opt or "3mo")
     interval = interval_arg or interval_opt or "5m"
+    period = validate_history_request(period_arg or period_opt or "1mo", interval)
     data = state.client().market.price_history(t, period, interval)
     _output(state, data)
 
@@ -371,7 +377,7 @@ def download_impl(
     """Fiyat gecmisini ceker, CSV dosyasina yazar (hisse mum verisi)."""
     state = _state(ctx)
     t = normalize_ticker(ticker)
-    normalized = parse_period(period)
+    normalized = validate_history_request(period, interval)
     data = state.client().market.price_history(t, normalized, interval)
     rows = extract_rows(data)
     if not rows:

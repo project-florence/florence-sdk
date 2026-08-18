@@ -7,6 +7,7 @@ Tum testler canli backend gerektirmez — httpx ``MockTransport`` ve Textual
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import datetime, timedelta
 from typing import Any
 
 import httpx
@@ -19,21 +20,31 @@ from florence.tui.app import FlorenceTUI
 API = "https://api.florencex.com.tr"
 P = f"{API}/api/v1"
 
+#: next_open_at BUGUNE gore dinamik uretilir — sabit gecmis tarih (2026-08-15
+#: gibi) K4 poll planlamasini (next_poll_delay > 45) 30s alt sinirina dusurup
+#: testi sessizce kirdigindan tarih zamandan bagimsiz hesaplanir.
+_NEXT_OPEN_AT = (
+    datetime.now()
+    .astimezone()
+    .replace(hour=10, minute=0, second=0, microsecond=0)
+    + timedelta(days=1)
+).isoformat()
+
 #: Test yanit sekilleri (docs/tui-design.md Ek A'daki sozlesmeler birebir).
-MOCK_STATUS_OPEN = {"open": True, "next_open_at": "2026-08-15T10:00:00+03:00", "holiday": False}
-MOCK_STATUS_CLOSED = {"open": False, "next_open_at": "2026-08-15T10:00:00+03:00", "holiday": False}
+MOCK_STATUS_OPEN = {"open": True, "next_open_at": _NEXT_OPEN_AT, "holiday": False}
+MOCK_STATUS_CLOSED = {"open": False, "next_open_at": _NEXT_OPEN_AT, "holiday": False}
 MOCK_STATS_TOP = [
-    {"ticker": "THYAO", "count": 99},
-    {"ticker": "ASELS", "count": 87},
-    {"ticker": "GARAN", "count": 71},
+    {"ticker": "THYAO", "total": 99},
+    {"ticker": "ASELS", "total": 87},
+    {"ticker": "GARAN", "total": 71},
 ]
 MOCK_GAINERS = [
-    {"ticker": "THYAO", "price": 313.4, "change_pct": 0.93},
-    {"ticker": "ASELS", "price": 1234.5, "change_pct": 1.2},
+    {"ticker": "THYAO", "last_price": 313.4, "change_pct": 0.93},
+    {"ticker": "ASELS", "last_price": 1234.5, "change_pct": 1.2},
 ]
 MOCK_LOSERS = [
-    {"ticker": "GARAN", "price": 121.5, "change_pct": -2.1},
-    {"ticker": "ISCTR", "price": 14.3, "change_pct": -0.4},
+    {"ticker": "GARAN", "last_price": 121.5, "change_pct": -2.1},
+    {"ticker": "ISCTR", "last_price": 14.3, "change_pct": -0.4},
 ]
 MOCK_GOLD = [
     {"Type": "Gram Altın", "Buying": "40,25", "Selling": "40,75"},
