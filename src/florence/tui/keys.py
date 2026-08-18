@@ -19,6 +19,12 @@ PERIOD_LABELS: dict[str, str] = {
 #: Varsayilan detay period'u (config ``tui_default_period`` yoksa).
 DEFAULT_PERIOD = "1mo"
 
+#: Detay grafigi tip haritasi: tip -> gorunur etiket (``c`` tusu ile toggle, P6).
+CHART_LABELS: dict[str, str] = {"line": "çizgi", "candle": "mum"}
+
+#: Varsayilan detay grafik tipi (config ``tui_default_chart`` yoksa).
+DEFAULT_CHART = "line"
+
 # ----------------------------------------------------------------------
 # Global tuslar (app.py BINDINGS)
 # ----------------------------------------------------------------------
@@ -41,10 +47,15 @@ KEY_OPEN_DETAIL = "enter"
 # ----------------------------------------------------------------------
 KEY_BACK = "escape"
 KEY_FAVORITE = "f"
+#: ``c`` — grafik tipi toggle (line <-> candle, P6).
+KEY_CHART_TOGGLE = "c"
 
 __all__ = [
+    "CHART_LABELS",
+    "DEFAULT_CHART",
     "DEFAULT_PERIOD",
     "KEY_BACK",
+    "KEY_CHART_TOGGLE",
     "KEY_DASHBOARD",
     "KEY_FAVORITE",
     "KEY_GAINERS",

@@ -56,6 +56,13 @@ def _valid_period(value: Any) -> str:
     return keys.DEFAULT_PERIOD
 
 
+def _valid_chart(value: Any) -> str:
+    """Gecerli bir grafik tipi (line|candle) degilse varsayilana doner (P6)."""
+    if value in keys.CHART_LABELS:
+        return str(value)
+    return keys.DEFAULT_CHART
+
+
 class HelpModal(ModalScreen[None]):
     """Yardim paneli: tus haritasi + surum (offline, veri istegi yok)."""
 
@@ -85,7 +92,8 @@ class HelpModal(ModalScreen[None]):
             "[b]q[/] Çıkış      [b]1[/] Pano      [b]2[/] İzleme listesi",
             "[b]r[/] Yenile     [b]h[/] Bu yardım",
             "[b]j[/]/[b]k[/] Satır  [b]enter[/] Detay  [b]g[/]/[b]l[/] Yükselen/Düşen",
-            "[b]1[/]/[b]3[/]/[b]6[/]/[b]y[/] Grafik dönemi (detay)  [b]esc[/] Geri",
+            "[b]1[/]/[b]3[/]/[b]6[/]/[b]y[/] Grafik dönemi (detay)",
+            "[b]c[/] Çizgi/Mum (detay)          [b]esc[/] Geri",
             "",
             f"Sürüm: {__version__}",
             f"API: {self.app.data.base_url}",  # type: ignore[attr-defined]
@@ -126,6 +134,7 @@ class FlorenceTUI(App[None]):
         config: CliConfig | None = None,
         refresh_seconds: float | None = None,
         default_period: str | None = None,
+        default_chart: str | None = None,
         market_closed_refresh: float | None = None,
         ttl_overrides: dict[str, float] | None = None,
     ) -> None:
@@ -141,6 +150,11 @@ class FlorenceTUI(App[None]):
             default_period
             if default_period is not None
             else _valid_period(cfg.get("tui_default_period"))
+        )
+        self.default_chart: str = (
+            default_chart
+            if default_chart is not None
+            else _valid_chart(cfg.get("tui_default_chart"))
         )
         closed: float = (
             market_closed_refresh
@@ -261,10 +275,17 @@ class FlorenceTUI(App[None]):
     def open_detail(self, ticker: str) -> None:
         """Seçili ticker'in detay ekranini acar (push — geri donus ``esc``).
 
-        ``DetailScreen`` varsayilan period ile baslar; ``1/3/6/y`` tuslari
-        ekran icinde period degistirip aninda yeniden fetch eder.
+        ``DetailScreen`` varsayilan period ve grafik tipiyle baslar
+        (config: ``tui_default_period`` / ``tui_default_chart``); ``1/3/6/y``
+        tuslari period'u, ``c`` tusu grafik tipini (cizgi/mum) degistirir.
         """
-        self.push_screen(DetailScreen(ticker, period=self.default_period))
+        self.push_screen(
+            DetailScreen(
+                ticker,
+                period=self.default_period,
+                chart_type=self.default_chart,
+            )
+        )
 
 
 def main() -> None:

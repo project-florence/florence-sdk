@@ -17,16 +17,22 @@ import contextlib
 import io
 
 import httpx
-import pytest
 from textual.widgets import DataTable, Static
 
 from florence import AsyncFlorenceClient, MemoryTokenStore
 from florence.tui.data import DataHub
 from florence.tui.screens.dashboard import DashboardScreen
 from florence.tui.screens.detail import DetailScreen
-from florence.tui.widgets import SparklineChart
 
 from .conftest import MOCK_HISTORY, make_handler, wait_for
+
+#: Mum wick'ini (``│``) gosteren gercek ``high``/``low`` iceren history —
+#: sentezlenmis high/low (P2) wick uretmez; ``c`` toggle testi buna ihtiyac duyar.
+OHLC_HISTORY = [
+    {"ts": "2026-07-01T00:00:00+00:00", "open": 300.0, "high": 310.0, "low": 295.0, "close": 310.0},
+    {"ts": "2026-07-02T00:00:00+00:00", "open": 310.0, "high": 314.0, "low": 308.0, "close": 313.4},
+    {"ts": "2026-07-03T00:00:00+00:00", "open": 313.4, "high": 313.4, "low": 311.0, "close": 312.0},
+]
 
 
 def _row_count(app, table_id: str) -> int:
@@ -67,15 +73,17 @@ def test_detail_renders_info_chart_news(make_app):
             assert "Havacılık" in info
             assert "313,40" in info
             assert "+0,93%" in info
-            # Buyuk grafik: normalize edilmis close serisi [310, 313.4, 312]
-            chart = app.screen.query_one("#detail-chart", SparklineChart)
-            await wait_for(app, lambda: len(chart.values) == 3)
-            assert chart.values == pytest.approx([0.0, 1.0, 0.5882352941176471])
-            # Grafik basligi: min/son/max etiketleri (TR format)
+            # Buyuk grafik: ccharts CChartLine — show_prices/show_times etiketleri
+            # ccharts tarafindan cizilir (TR format yok — noktali ondalik).
+            await wait_for(app, lambda: "2026-07-01" in _text(app, "detail-chart"))
+            chart_out = _text(app, "detail-chart")
+            assert "313.40" in chart_out  # show_prices: max fiyat (noktali ondalik)
+            assert "2026-07-03" in chart_out  # show_times: son tarih
+            assert any(ch in chart_out for ch in "▁▂▃▄▅▆▇█")
+            # Grafik basligi: tip + period (min/son/max artik ccharts etiketlerinde).
             title = _text(app, "chart-title")
-            assert "ÇİZGİ GRAFİK (1 Ay)" in title
-            assert "en yüksek 313,40" in title
-            assert "en düşük 310,00" in title
+            assert "GRAFİK (1 Ay · çizgi)" in title
+            assert "en yüksek" not in title
             # Haberler (JWT)
             await wait_for(app, lambda: "THYAO haberi" in _text(app, "detail-news"))
             news = _text(app, "detail-news")
@@ -101,13 +109,12 @@ def test_detail_period_change_refetches_with_new_period(make_app):
         app = make_app(handler)
         async with app.run_test(size=(120, 40)) as pilot:
             await _open_detail_from_dashboard(app, pilot)
-            chart = app.screen.query_one("#detail-chart", SparklineChart)
-            await wait_for(app, lambda: len(chart.values) == 3)
+            await wait_for(app, lambda: "2026-07-01" in _text(app, "detail-chart"))
             # '3' -> 3mo; period degisince aninda yeniden fetch (poll beklenmez)
             await pilot.press("3")
             await wait_for(app, lambda: "3mo" in seen["periods"])
             assert app.screen.period == "3mo"
-            await wait_for(app, lambda: "ÇİZGİ GRAFİK (3 Ay)" in _text(app, "chart-title"))
+            await wait_for(app, lambda: "GRAFİK (3 Ay · çizgi)" in _text(app, "chart-title"))
             # Ayni period'a tekrar basmak yeniden istek atmaz
             before = len(seen["periods"])
             await pilot.press("3")
@@ -127,8 +134,7 @@ def test_detail_news_hidden_without_auth(make_app):
             assert "fl auth login" in _text(app, "detail-news")
             # Public kisim (fiyat/grafik) auth'suz calisir
             await wait_for(app, lambda: "THYAO" in _text(app, "detail-info"))
-            chart = app.screen.query_one("#detail-chart", SparklineChart)
-            await wait_for(app, lambda: len(chart.values) == 3)
+            await wait_for(app, lambda: "2026-07-01" in _text(app, "detail-chart"))
 
     asyncio.run(run())
 
@@ -139,6 +145,7 @@ def test_detail_empty_history_shows_veri_yok(make_app):
         async with app.run_test(size=(120, 40)) as pilot:
             await _open_detail_from_dashboard(app, pilot)
             await wait_for(app, lambda: "bu dönem için veri yok" in _text(app, "chart-title"))
+            assert "Veri yok" in _text(app, "detail-chart")
             # Bilgi satiri ve haberler etkilenmez (kismi hata toleransi)
             await wait_for(app, lambda: "Türk Hava Yolları" in _text(app, "detail-info"))
 
@@ -153,6 +160,76 @@ def test_detail_escape_returns_to_previous_screen(make_app):
             await wait_for(app, lambda: "THYAO" in _text(app, "detail-info"))
             await pilot.press("escape")
             await wait_for(app, lambda: isinstance(app.screen, DashboardScreen))
+
+    asyncio.run(run())
+
+
+def test_detail_chart_toggle_line_candle(make_app):
+    """``c`` — line/candle toggle; veri cache'te oldugundan yeni istek YOK (P6).
+
+    Titreşimli render: her ``c`` isabetinde ``_last_snapshot``'tan aninda
+    cizilir (poll worker'a ihtiyac yok); istek sayisi degismez.
+    """
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "/price/history/" in request.url.path:
+            calls["n"] += 1
+        return make_handler(history=OHLC_HISTORY)(request)
+
+    async def run() -> None:
+        app = make_app(handler)
+        async with app.run_test(size=(120, 40)) as pilot:
+            await _open_detail_from_dashboard(app, pilot)
+            # Ilk durum: line (varsayilan)
+            await wait_for(app, lambda: "2026-07-01" in _text(app, "detail-chart"))
+            assert "GRAFİK (1 Ay · çizgi)" in _text(app, "chart-title")
+            assert "▁" in _text(app, "detail-chart")
+            before = calls["n"]
+            # c -> candle: wick (│) cikar, baslik 'mum' gosterir
+            await pilot.press("c")
+            await wait_for(app, lambda: "│" in _text(app, "detail-chart"))
+            assert "GRAFİK (1 Ay · mum)" in _text(app, "chart-title")
+            assert calls["n"] == before  # cache — ek istek yok
+            # c -> line: blok karakterler geri gelir (│ kaybolur)
+            await pilot.press("c")
+            await wait_for(app, lambda: "▁" in _text(app, "detail-chart") and "│" not in _text(app, "detail-chart"))
+            assert "GRAFİK (1 Ay · çizgi)" in _text(app, "chart-title")
+            assert calls["n"] == before
+
+    asyncio.run(run())
+
+
+def test_detail_default_chart_reads_tui_default_chart_config(make_app, tmp_path):
+    """Config ``tui_default_chart = "candle"`` -> detay mum grafikle acilir (P6)."""
+    (tmp_path / "config.toml").write_text('[cli]\ntui_default_chart = "candle"\n', encoding="utf-8")
+
+    async def run() -> None:
+        app = make_app(make_handler(history=OHLC_HISTORY))
+        async with app.run_test(size=(120, 40)) as pilot:
+            app.open_detail("THYAO")
+            await wait_for(app, lambda: isinstance(app.screen, DetailScreen))
+            await wait_for(app, lambda: "│" in _text(app, "detail-chart"))
+            assert app.screen._chart_type == "candle"
+            assert "GRAFİK (1 Ay · mum)" in _text(app, "chart-title")
+            # c ile line'a donulebilir (toggle her iki yonde calisir)
+            await pilot.press("c")
+            await wait_for(app, lambda: "▁" in _text(app, "detail-chart"))
+            assert app.screen._chart_type == "line"
+
+    asyncio.run(run())
+
+
+def test_detail_default_chart_param(make_app):
+    """``FlorenceTUI(default_chart=...)`` parametresi detay baslangic tipini belirler."""
+    async def run() -> None:
+        app = make_app(make_handler(history=OHLC_HISTORY), default_chart="candle")
+        async with app.run_test(size=(120, 40)):
+            app.open_detail("THYAO")
+            await wait_for(app, lambda: isinstance(app.screen, DetailScreen))
+            await wait_for(app, lambda: "│" in _text(app, "detail-chart"))
+            assert app.screen.chart_type == "candle"
+            assert "GRAFİK (1 Ay · mum)" in _text(app, "chart-title")
 
     asyncio.run(run())
 

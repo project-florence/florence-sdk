@@ -658,6 +658,22 @@ def test_config_set_allowlist_rejects(monkeypatch: pytest.MonkeyPatch, cli_env: 
     assert "Geçersiz config anahtarı" in err
 
 
+def test_config_set_tui_default_chart(
+    monkeypatch: pytest.MonkeyPatch, cli_env: dict[str, str], tmp_path: Path
+) -> None:
+    """``tui_default_chart`` allowlist'te (line|candle); gecersiz deger exit 2 (P6)."""
+    code, out, err = run_cli(monkeypatch, ["config", "set", "tui_default_chart", "candle"], env=cli_env)
+    assert code == 0
+    cfg_file = tmp_path / "xdg" / "florence" / "config.toml"
+    assert 'tui_default_chart = "candle"' in cfg_file.read_text(encoding="utf-8")
+
+    code, out, err = run_cli(monkeypatch, ["config", "set", "tui_default_chart", "pasta"], env=cli_env)
+    assert code == 2
+    assert "tui_default_chart" in err
+    # Dosya degismedi (gecersiz deger yazilmadi).
+    assert 'tui_default_chart = "candle"' in cfg_file.read_text(encoding="utf-8")
+
+
 def test_config_set_and_show_roundtrip(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cli_env: dict[str, str]
 ) -> None:

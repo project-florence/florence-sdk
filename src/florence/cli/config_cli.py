@@ -36,6 +36,8 @@ ALLOWED_KEYS = frozenset(
         # TUI ayarlari (docs/tui-design.md §6.1) — PART 1.
         "tui_refresh_seconds",
         "tui_default_period",
+        # TUI ayarlari (plan v2, P6) — detay grafik tipi (line|candle).
+        "tui_default_chart",
     }
 )
 
@@ -46,6 +48,9 @@ DEFAULT_OUTPUTS = frozenset({"table", "json"})
 
 #: TUI detay grafigi period'lari (tui-default-period: 1mo|3mo|6mo|1y).
 TUI_DEFAULT_PERIODS = frozenset({"1mo", "3mo", "6mo", "1y"})
+
+#: Detay grafigi tipleri (tui_default_chart: line|candle — P6).
+TUI_DEFAULT_CHARTS = frozenset({"line", "candle"})
 
 #: tui_refresh_seconds kabul araligi (disi clamp — tasarim §6.1).
 TUI_REFRESH_MIN = 10
@@ -133,6 +138,10 @@ class CliConfig:
         elif key == "tui_default_period" and value not in TUI_DEFAULT_PERIODS:
             raise typer.UsageError(
                 f"tui_default_period değeri '{value}' geçersiz; 1mo|3mo|6mo|1y olmalı"
+            )
+        elif key == "tui_default_chart" and value not in TUI_DEFAULT_CHARTS:
+            raise typer.UsageError(
+                f"tui_default_chart değeri '{value}' geçersiz; line|candle olmalı"
             )
         self._data[key] = value
         self._save()

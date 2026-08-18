@@ -81,14 +81,20 @@ class CChartBase(Static):
         self,
         rows: list[dict[str, Any]] | None,
         *,
+        chart_type: str | None = None,
         show_prices: bool | None = None,
         show_times: bool | None = None,
     ) -> None:
         """OHLC satirlarini cizer; bos liste ``Veri yok`` gosterir.
 
         ``rows`` kopyalanir — cagiran tarafin listesine dokunulmaz.
+        ``chart_type`` (``"line"``/``"candle"``) verilirse ayni widget'ta
+        cizim tipini degistirir (Faz C ``c`` toggle — P6); gecersiz deger
+        yok sayilir, son gecerli tip korunur.
         """
         self._rows = [dict(r) for r in (rows or []) if isinstance(r, dict)]
+        if chart_type in ("line", "candle"):
+            self._chart_type = chart_type
         if show_prices is not None:
             self._show_prices = bool(show_prices)
         if show_times is not None:

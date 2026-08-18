@@ -193,6 +193,25 @@ def test_cchart_update_data_replaces_previous_data():
     _run(run())
 
 
+def test_cchart_update_data_accepts_chart_type_switch():
+    """``update_data(rows, chart_type=...)`` ayni widget'ta tip degistirir (Faz C)."""
+    async def run() -> None:
+        app = _ChartApp(CChartLine(id="line-chart"))
+        async with app.run_test(size=(100, 20)) as pilot:
+            chart = app.query_one("#line-chart", CChartLine)
+            chart.update_data(MOCK_OHLC_ROWS, chart_type="candle")
+            content = _plain(chart)
+            assert "│" in content  # wick — mum render'i
+            chart.update_data(MOCK_OHLC_ROWS, chart_type="line")
+            assert "▁" in _plain(chart)  # bloklar — cizgi render'i
+            # Gecersiz tip yok sayilir: son gecerli tip korunur.
+            chart.update_data(MOCK_OHLC_ROWS, chart_type="piramit")
+            assert "│" not in _plain(chart)
+            await pilot.pause(0.05)
+
+    _run(run())
+
+
 @pytest.mark.parametrize("widget_cls", [CChartLine, CChartCandle])
 def test_cchart_widgets_accept_kwargs(widget_cls):
     """Textual standart kwargs (name/id/classes) kabul edilir."""
