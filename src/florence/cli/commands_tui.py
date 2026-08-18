@@ -14,14 +14,14 @@ import typer
 __all__ = ["tui_app"]
 
 tui_app = typer.Typer(
-    help="Tam ekran terminal arayüzü (pano, izleme listesi, detay/grafik).",
+    help="Tam ekran terminal arayüzü (pano, izleme listesi, detay/grafik, portföy).",
     no_args_is_help=True,
 )
 
 
 @tui_app.command("tui")
 def tui_command() -> None:
-    """Tam ekran TUI'yi başlatır: pano, izleme listesi ve ticker detay/grafik."""
+    """Tam ekran TUI'yi başlatır: pano, izleme listesi, ticker detay/grafik ve portföy."""
     # Gec import: dairesel bagimlilik yok (tui.app -> cli.config_cli) ve
     # ``fl --help`` gibi hafif akislar TUI'yi yuklemez.
     from florence.tui.app import main as tui_main
