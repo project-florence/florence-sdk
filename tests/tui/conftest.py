@@ -7,7 +7,7 @@ Tum testler canli backend gerektirmez — httpx ``MockTransport`` ve Textual
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -20,12 +20,16 @@ from florence.tui.app import FlorenceTUI
 API = "https://api.florencex.com.tr"
 P = f"{API}/api/v1"
 
-#: next_open_at BUGUNE gore dinamik uretilir — sabit gecmis tarih (2026-08-15
-#: gibi) K4 poll planlamasini (next_poll_delay > 45) 30s alt sinirina dusurup
-#: testi sessizce kirdigindan tarih zamandan bagimsiz hesaplanir.
+try:
+    from zoneinfo import ZoneInfo
+
+    _TR_TZ = ZoneInfo("Europe/Istanbul")
+except Exception:
+    _TR_TZ = timezone(timedelta(hours=3))
+
+#: next_open_at BUGUNE gore dinamik uretilir (Istanbul saati 10:00).
 _NEXT_OPEN_AT = (
-    datetime.now()
-    .astimezone()
+    datetime.now(_TR_TZ)
     .replace(hour=10, minute=0, second=0, microsecond=0)
     + timedelta(days=1)
 ).isoformat()
