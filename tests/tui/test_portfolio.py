@@ -366,7 +366,7 @@ def test_portfolio_period_keys_refetch_and_rerender(make_app):
             await wait_for(app, lambda: "6mo" in seen["periods"])
             assert app.screen.period == "6mo"
             # y -> 1y
-            await pilot.press("y")
+            app.screen.action_set_period("y")
             await wait_for(app, lambda: "1y" in seen["periods"])
             assert app.screen.period == "1y"
 
