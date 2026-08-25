@@ -20,7 +20,7 @@ P = f"{API}/api/v1"
 
 
 def test_import_and_version():
-    assert florence.__version__ == "0.2.0"
+    assert florence.__version__ == "0.3.0"
     assert hasattr(florence, "FlorenceClient")
     assert hasattr(florence, "AsyncFlorenceClient")
     assert hasattr(florence, "AuthManager")

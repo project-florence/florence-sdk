@@ -40,7 +40,7 @@ KEYRING_SERVICE = "florence-sdk"
 #: Her istekte gonderilen varsayilan header'lar.
 DEFAULT_HEADERS: dict[str, str] = {
     "Accept": "application/json",
-    "User-Agent": "florence-sdk/0.2.0",
+    "User-Agent": "florence-sdk/0.3.0",
 }
 
 #: Varsayilan timeout'lar (saniye). Connect 10s, read 30s.

@@ -1,6 +1,6 @@
 [project]
 name = "florence-sdk"
-version = "0.2.0"
+version = "0.3.0"
 description = "Florence API SDK — Python wrapper (sync+async), CLI, AI tools, MCP server and agents for the Florence platform"
 readme = "README.md"
 requires-python = ">=3.12"

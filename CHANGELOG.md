@@ -3,6 +3,30 @@
 Bu projede [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) biçimi ve
 [SemVer](https://semver.org/lang/tr/) sürümleme kullanılır.
 
+## [0.3.0] — 2026-08-25
+
+### Eklendi (Added)
+
+- **Piyasa Bülteni (Digest API & CLI & MCP & TUI):**
+  - SDK: `client.digest.current()`, `get()`, `by_date_slot()`, `by_date()` metodları.
+  - CLI: `fl digest` komutu (`--date`, `--slot`, `--at`, `--json`).
+  - MCP: `market_digest` aracı (toplam 99 MCP aracı).
+  - TUI: `[3] Bülten` tam ekran yapay zeka piyasa bülteni okuyucusu (`DigestScreen`).
+- **TUI Çok Sekmeli Navigasyon Sistemi (`NavBar`):**
+  - `[1] Pano` · `[2] İzleme` · `[3] Bülten` · `[4] Portföy` · `[5] Hisseler` · `[6] Ekonomi`.
+- **Yeni TUI Ekranları:**
+  - `[5] Hisseler` (`StocksScreen`): Popüler, Yükselenler, Düşenler, Hacim ve Piyasa Değerine göre sıralanabilir BIST şirket listesi; `Enter` ile detay açma.
+  - `[6] Ekonomi` (`EconomyScreen`): Canlı döviz kurları (USD/EUR) ve altın türleri (Gram, Çeyrek, Cumhuriyet) tablosu.
+- **Görsel & Grafik İyileştirmeleri:**
+  - Pano: En üstte yıldızlı favoriler çubuğu, günün bülteni vurgusu ve popülerlik sıralaması.
+  - Mum grafiği: Çift renkli mum desteği (yükseliş yeşil `$success`, düşüş kırmızı `$error`).
+  - Detay ekranı: Görsel dönem (`1A/3A/6A/1Y`) ve grafik türü (`Çizgi/Mum`) sekmeleri.
+
+### Değişti (Changed)
+
+- Sürüm `0.2.0` → **`0.3.0`**.
+- `README.md` merge conflict temizliği ve yeni özelliklerle güncellendi.
+
 ## [0.2.0] — 2026-08-18
 
 ### Eklendi (Added)
