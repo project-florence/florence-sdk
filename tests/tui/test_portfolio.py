@@ -220,29 +220,29 @@ def test_portfolio_chart_rows_skips_invalid_values():
 # T-E2 + T-E4 — ekran testleri (run_test + pilot)
 # ----------------------------------------------------------------------
 def test_portfolio_key_and_escape_navigation(make_app):
-    """``4`` portfoye gecirir; ``esc`` geldigi ekrana doner (switch, push degil)."""
+    """``5`` portfoye gecirir; ``esc`` geldigi ekrana doner (switch, push degil)."""
 
     async def run() -> None:
         app = make_app(make_handler())
         async with app.run_test(size=(120, 40)) as pilot:
-            # Dashboard -> 4 -> Portfolio
-            await pilot.press("4")
+            # Dashboard -> 5 -> Portfolio
+            await pilot.press("5")
             await wait_for(app, lambda: isinstance(app.screen, PortfolioScreen))
             await wait_for(app, lambda: _row_count(app, "portfolio-table") == 2)
             # esc -> dashboard'a doner (switch; stack'e push edilmedi)
             await pilot.press("escape")
             await wait_for(app, lambda: type(app.screen).__name__ == "DashboardScreen")
-            # Watchlist -> 4 -> Portfolio; esc -> watchlist'e doner
-            await pilot.press("2")
+            # Watchlist -> 5 -> Portfolio; esc -> watchlist'e doner
+            await pilot.press("3")
             await wait_for(app, lambda: type(app.screen).__name__ == "WatchlistScreen")
-            await pilot.press("4")
+            await pilot.press("5")
             await wait_for(app, lambda: isinstance(app.screen, PortfolioScreen))
             await pilot.press("escape")
             await wait_for(app, lambda: type(app.screen).__name__ == "WatchlistScreen")
-            # Serbest gezinme: watchlist'ten 1 -> dashboard, 4 -> portfolio
+            # Serbest gezinme: watchlist'ten 1 -> dashboard, 5 -> portfolio
             await pilot.press("1")
             await wait_for(app, lambda: type(app.screen).__name__ == "DashboardScreen")
-            await pilot.press("4")
+            await pilot.press("5")
             await wait_for(app, lambda: isinstance(app.screen, PortfolioScreen))
 
     asyncio.run(run())
@@ -254,7 +254,7 @@ def test_portfolio_select_row_shows_summary_chart_performers(make_app):
     async def run() -> None:
         app = make_app(make_handler())
         async with app.run_test(size=(120, 40)) as pilot:
-            await pilot.press("4")
+            await pilot.press("5")
             await wait_for(app, lambda: isinstance(app.screen, PortfolioScreen))
             await wait_for(app, lambda: _row_count(app, "portfolio-table") == 2)
             table = app.screen.query_one("#portfolio-table", DataTable)
@@ -290,7 +290,7 @@ def test_portfolio_screen_auto_selects_single(make_app):
     async def run() -> None:
         app = make_app(make_handler(portfolios=[{"id": 3, "name": "Tek"}]))
         async with app.run_test(size=(120, 40)) as pilot:
-            await pilot.press("4")
+            await pilot.press("5")
             await wait_for(app, lambda: isinstance(app.screen, PortfolioScreen))
             await wait_for(app, lambda: "Toplam" in _text(app, "portfolio-summary"))
             assert app.screen.portfolio_id == "3"
@@ -305,7 +305,7 @@ def test_portfolio_screen_auth_required_without_token(make_app):
     async def run() -> None:
         app = make_app(make_handler(), authenticated=False)
         async with app.run_test(size=(120, 40)) as pilot:
-            await pilot.press("4")
+            await pilot.press("5")
             await wait_for(app, lambda: isinstance(app.screen, PortfolioScreen))
             await wait_for(app, lambda: _state(app) == "portfolio-auth")
             assert "fl auth login" in _text(app, "portfolio-auth")
@@ -320,7 +320,7 @@ def test_portfolio_screen_empty_list_suggests_cli_create(make_app):
     async def run() -> None:
         app = make_app(make_handler(portfolios=[]))
         async with app.run_test(size=(120, 40)) as pilot:
-            await pilot.press("4")
+            await pilot.press("5")
             await wait_for(app, lambda: isinstance(app.screen, PortfolioScreen))
             await wait_for(app, lambda: _state(app) == "portfolio-empty")
             text = _text(app, "portfolio-empty")
@@ -344,7 +344,7 @@ def test_portfolio_period_keys_refetch_and_rerender(make_app):
 
         app = make_app(handler)
         async with app.run_test(size=(120, 40)) as pilot:
-            await pilot.press("4")
+            await pilot.press("5")
             await wait_for(app, lambda: isinstance(app.screen, PortfolioScreen))
             await wait_for(app, lambda: _row_count(app, "portfolio-table") == 2)
             table = app.screen.query_one("#portfolio-table", DataTable)
@@ -375,7 +375,7 @@ def test_portfolio_chart_renders_full_ohlc_and_candle_toggle(make_app):
     async def run() -> None:
         app = make_app(make_handler(portfolio_history=MOCK_PORTFOLIO_HISTORY_OHLC))
         async with app.run_test(size=(120, 40)) as pilot:
-            await pilot.press("4")
+            await pilot.press("5")
             await wait_for(app, lambda: isinstance(app.screen, PortfolioScreen))
             await wait_for(app, lambda: _row_count(app, "portfolio-table") == 2)
             table = app.screen.query_one("#portfolio-table", DataTable)
@@ -398,7 +398,7 @@ def test_portfolio_chart_renders_full_ohlc_and_candle_toggle(make_app):
 
 
 def test_help_modal_lists_portfolio_key(make_app):
-    """Yardim panelinde ``4`` (Portfoy) satiri guncellenir (T-E4)."""
+    """Yardim panelinde ``5`` (Portfoy) satiri guncellenir (T-E4)."""
 
     async def run() -> None:
         app = make_app(make_handler())
@@ -411,7 +411,7 @@ def test_help_modal_lists_portfolio_key(make_app):
             assert isinstance(app.screen, HelpModal)
             box = app.screen.query_one("#help-box", Vertical)
             text = str(box.query_one(Static).render())
-            assert "4" in text
+            assert "5" in text
             assert "Portföy" in text
 
     asyncio.run(run())

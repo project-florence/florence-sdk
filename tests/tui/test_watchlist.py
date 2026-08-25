@@ -71,7 +71,7 @@ def test_watchlist_renders_favorites_with_prices_and_sparkline(make_app):
     async def run() -> None:
         app = make_app(make_handler())
         async with app.run_test(size=(120, 40)) as pilot:
-            await pilot.press("2")
+            await pilot.press("3")
             await wait_for(app, lambda: isinstance(app.screen, WatchlistScreen))
             await wait_for(app, lambda: _row_count(app, "watchlist-table") == 2)
             table = app.screen.query_one("#watchlist-table", DataTable)
@@ -100,7 +100,7 @@ def test_watchlist_empty_state_suggests_cli_add(make_app):
     async def run() -> None:
         app = make_app(make_handler(favorites=[]))
         async with app.run_test(size=(120, 40)) as pilot:
-            await pilot.press("2")
+            await pilot.press("3")
             await wait_for(app, lambda: isinstance(app.screen, WatchlistScreen))
             await wait_for(app, lambda: _state(app) == "watchlist-empty")
             text = _text(app, "watchlist-empty")
@@ -114,7 +114,7 @@ def test_watchlist_auth_required_without_token(make_app):
     async def run() -> None:
         app = make_app(make_handler(), authenticated=False)
         async with app.run_test(size=(120, 40)) as pilot:
-            await pilot.press("2")
+            await pilot.press("3")
             await wait_for(app, lambda: isinstance(app.screen, WatchlistScreen))
             await wait_for(app, lambda: _state(app) == "watchlist-auth")
             assert "fl auth login" in _text(app, "watchlist-auth")
@@ -128,7 +128,7 @@ def test_watchlist_partial_price_failure_keeps_list(make_app):
     async def run() -> None:
         app = make_app(make_handler(price_fail_tickers={"ASELS"}))
         async with app.run_test(size=(120, 40)) as pilot:
-            await pilot.press("2")
+            await pilot.press("3")
             await wait_for(app, lambda: isinstance(app.screen, WatchlistScreen))
             await wait_for(app, lambda: _row_count(app, "watchlist-table") == 2)
             table = app.screen.query_one("#watchlist-table", DataTable)
@@ -150,7 +150,7 @@ def test_watchlist_enter_opens_detail(make_app):
     async def run() -> None:
         app = make_app(make_handler())
         async with app.run_test(size=(120, 40)) as pilot:
-            await pilot.press("2")
+            await pilot.press("3")
             await wait_for(app, lambda: isinstance(app.screen, WatchlistScreen))
             await wait_for(app, lambda: _row_count(app, "watchlist-table") == 2)
             table = app.screen.query_one("#watchlist-table", DataTable)

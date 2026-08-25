@@ -13,7 +13,7 @@ from textual.screen import Screen
 from textual.widgets import ContentSwitcher, DataTable, Static
 
 from ..data import EconomySnapshot, status_bar_text
-from ..widgets.nav import NavBar
+from ..widgets.nav import AppHeader
 
 __all__ = ["EconomyDataFailed", "EconomyDataUpdated", "EconomyScreen"]
 
@@ -72,7 +72,7 @@ class EconomyScreen(Screen[None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="economy-root"):
-            yield NavBar(active="economy")
+            yield AppHeader(active="economy")
             yield Static("Piyasa durumu yükleniyor…", id="economy-status")
             yield Static("", id="banner")
             with Horizontal(id="economy-tables"):

@@ -17,7 +17,7 @@ import contextlib
 import io
 
 import httpx
-from textual.widgets import DataTable, Static
+from textual.widgets import Button, DataTable, Static
 
 from florence import AsyncFlorenceClient, MemoryTokenStore
 from florence.tui.data import DataHub
@@ -50,9 +50,9 @@ def _text(app, widget_id: str) -> str:
 
 
 async def _open_detail_from_dashboard(app, pilot) -> None:
-    """Pano 'Öne Çıkanlar' tablosundan enter ile detay acar (THYAO)."""
-    await wait_for(app, lambda: _row_count(app, "stats-top") == 3)
-    table = app.screen.query_one("#stats-top", DataTable)
+    """Pano 'Popüler' tablosundan enter ile detay acar (THYAO)."""
+    await wait_for(app, lambda: _row_count(app, "popular-table") == 3)
+    table = app.screen.query_one("#popular-table", DataTable)
     table.move_cursor(row=0, column=0)
     await pilot.press("enter")
     await wait_for(app, lambda: isinstance(app.screen, DetailScreen))
@@ -230,6 +230,118 @@ def test_detail_default_chart_param(make_app):
             await wait_for(app, lambda: "│" in _text(app, "detail-chart"))
             assert app.screen.chart_type == "candle"
             assert "GRAFİK (1 Ay · mum)" in _text(app, "chart-title")
+
+    asyncio.run(run())
+
+
+def test_detail_priority_bindings_isolated_from_tabs(make_app):
+    """Detay ekranindayken 1, 3, 6 tuslari ana sayfa sekmelerine gecmek yerine period'u degistirir."""
+    seen: list[str | None] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "/price/history/" in request.url.path:
+            seen.append(request.url.params.get("period"))
+            return httpx.Response(200, json=MOCK_HISTORY)
+        return make_handler()(request)
+
+    async def run() -> None:
+        app = make_app(handler)
+        async with app.run_test(size=(120, 40)) as pilot:
+            await _open_detail_from_dashboard(app, pilot)
+            await wait_for(app, lambda: isinstance(app.screen, DetailScreen))
+
+            # 3 basinca DigestScreen'e gecmemeli, DetailScreen'de 3mo period secilmeli
+            await pilot.press("3")
+            await wait_for(app, lambda: app.screen.period == "3mo")
+            assert isinstance(app.screen, DetailScreen)
+
+            # 6 basinca EconomyScreen'e gecmemeli, DetailScreen'de 6mo period secilmeli
+            await pilot.press("6")
+            await wait_for(app, lambda: app.screen.period == "6mo")
+            assert isinstance(app.screen, DetailScreen)
+
+            # 1 basinca DashboardScreen'e gecmemeli, DetailScreen'de 1mo period secilmeli
+            await pilot.press("1")
+            await wait_for(app, lambda: app.screen.period == "1mo")
+            assert isinstance(app.screen, DetailScreen)
+
+    asyncio.run(run())
+
+
+def test_detail_button_clicks_period_and_type(make_app):
+    """Fare ile butonlara tiklandiginda period ve cizgi/mum grafik turu aninda degisir."""
+    async def run() -> None:
+        app = make_app(make_handler(history=OHLC_HISTORY))
+        async with app.run_test(size=(120, 40)) as pilot:
+            await _open_detail_from_dashboard(app, pilot)
+            await wait_for(app, lambda: isinstance(app.screen, DetailScreen))
+            await wait_for(app, lambda: "2026-07-01" in _text(app, "detail-chart"))
+
+            # [ 3A ] butonuna tikla
+            btn_3mo = app.screen.query_one("#btn-period-3mo", Button)
+            await pilot.click(btn_3mo)
+            await wait_for(app, lambda: app.screen.period == "3mo")
+            assert "btn-active" in btn_3mo.classes
+
+            # [ 🕯️ Mum ] butonuna tikla
+            btn_candle = app.screen.query_one("#btn-type-candle", Button)
+            await pilot.click(btn_candle)
+            await wait_for(app, lambda: "│" in _text(app, "detail-chart"))
+            assert app.screen.chart_type == "candle"
+            assert "btn-active" in btn_candle.classes
+
+            # [ 📈 Çizgi ] butonuna tikla
+            btn_line = app.screen.query_one("#btn-type-line", Button)
+            await pilot.click(btn_line)
+            await wait_for(app, lambda: "▁" in _text(app, "detail-chart"))
+            assert app.screen.chart_type == "line"
+            assert "btn-active" in btn_line.classes
+
+    asyncio.run(run())
+
+
+def test_detail_stats_card_renders_ohlc_and_52w(make_app):
+    """OHLC istatistikleri ve 52H degerleri kartta dogru render edilir."""
+    custom_company_info = {
+        "THYAO": {
+            "ticker": "THYAO",
+            "longName": "Türk Hava Yolları",
+            "sector": "Havacılık",
+            "fiftyTwoWeekHigh": 350.0,
+            "fiftyTwoWeekLow": 210.0,
+            "summary": "Türkiye'nin bayrak taşıyıcı havayolu şirketi.",
+        }
+    }
+    custom_prices = {
+        "THYAO": {
+            "ticker": "THYAO",
+            "price": 313.4,
+            "change_pct": 0.93,
+            "open": 310.0,
+            "high": 314.0,
+            "low": 308.0,
+            "previous_close": 310.0,
+            "volume": 2500000000,
+        }
+    }
+
+    async def run() -> None:
+        app = make_app(make_handler(company_info=custom_company_info, prices=custom_prices))
+        async with app.run_test(size=(120, 40)) as pilot:
+            await _open_detail_from_dashboard(app, pilot)
+            await wait_for(app, lambda: isinstance(app.screen, DetailScreen))
+            await wait_for(app, lambda: "Açılış" in _text(app, "detail-stats"))
+
+            stats = _text(app, "detail-stats")
+            assert "310,00 ₺" in stats
+            assert "314,00 ₺" in stats
+            assert "308,00 ₺" in stats
+            assert "2.50 Mr" in stats
+            assert "210,00 - 350,00 ₺" in stats
+
+            # Profil ozeti
+            profile = _text(app, "detail-profile")
+            assert "Türkiye'nin bayrak taşıyıcı" in profile
 
     asyncio.run(run())
 

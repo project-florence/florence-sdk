@@ -64,6 +64,17 @@ class CChartBase(Static):
         self._rise: str | None = None
         self._fall: str | None = None
 
+    @property
+    def chart_type(self) -> str:
+        return self._chart_type
+
+    @chart_type.setter
+    def chart_type(self, value: str) -> None:
+        if value in ("line", "candle") and value != self._chart_type:
+            self._chart_type = value
+            self._apply_colors()
+            self._render_chart()
+
     # ------------------------------------------------------------------
     # Yasam dongusu
     # ------------------------------------------------------------------
@@ -111,7 +122,13 @@ class CChartBase(Static):
         Tema henuz hazir degilse veya tanimsizsa ``None`` kalir — ccharts
         kendi defaultunu (yesil/kirmizi) kullanir (fallback, P4).
         """
-        theme = getattr(self.app, "theme_variables", None) if self.is_mounted else None
+        theme = None
+        try:
+            if self.is_mounted and self.app is not None:
+                theme = getattr(self.app, "theme_variables", None)
+        except Exception:
+            theme = None
+
         if self._chart_type == "candle":
             self._rise, self._fall = charts.candle_colors(theme)
         else:

@@ -84,6 +84,9 @@ AUTH_REQUIRED_SECTIONS: tuple[str, ...] = (
     "losers",
     "gold",
     "currency",
+    "popular",
+    "favorites",
+    "digest",
 )
 
 #: Rate limit sonrasi uzatilmis interval ust siniri (tasarim §4.4).

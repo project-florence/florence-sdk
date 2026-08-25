@@ -41,7 +41,7 @@ from textual.widgets import ContentSwitcher, DataTable, Static
 from .. import keys
 from ..data import PortfolioSnapshot, delta_style, status_bar_text, tr_delta, tr_number
 from ..keys import KEY_BACK, KEY_CHART_TOGGLE, KEY_OPEN_DETAIL, PERIODS
-from ..widgets import CChartLine, NavBar
+from ..widgets import AppHeader, CChartLine
 
 __all__ = [
     "PortfolioDataFailed",
@@ -114,11 +114,7 @@ class PortfolioScreen(Screen[None]):
     """PORTFÖY: secim + ozet + grafik + performers (tasarim §2.4 v2)."""
 
     BINDINGS = [
-        # Period tuslari detayla AYNI (keys.PERIODS: 1/3/6/y -> 1mo/3mo/6mo/1y).
-        Binding("1", "set_period('1')", "1 Ay"),
-        Binding("3", "set_period('3')", "3 Ay"),
-        Binding("6", "set_period('6')", "6 Ay"),
-        Binding("y", "set_period('y')", "1 Yıl"),
+        Binding("y", "set_period('y')", "1 Yıl", show=False),
         Binding(KEY_CHART_TOGGLE, "toggle_chart", "Çizgi/Mum"),
         # priority=True: odakli DataTable 'enter' tusunu yutar — ekran
         # binding'i once calismali (watchlist deseni, Textual 8.2.8).
@@ -233,7 +229,7 @@ class PortfolioScreen(Screen[None]):
         performers = DataTable(id="performers-table", cursor_type="row", zebra_stripes=True)
         performers.add_columns("Ticker", "Getiri")
         with Vertical(id="portfolio-root"):
-            yield NavBar(active="portfolio")
+            yield AppHeader(active="portfolio")
             yield Static("Piyasa durumu yükleniyor…", id="portfolio-status")
             yield Static("", id="banner")
             yield Static("PORTFÖY", id="portfolio-title")

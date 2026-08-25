@@ -38,6 +38,11 @@ MOCK_STATS_TOP = [
     {"ticker": "ASELS", "total": 87},
     {"ticker": "GARAN", "total": 71},
 ]
+MOCK_POPULAR = [
+    {"ticker": "THYAO", "name": "Türk Hava Yolları", "last_price": 313.4, "change_pct": 0.93, "volume": 1250000000.0},
+    {"ticker": "ASELS", "name": "Aselsan Elektronik", "last_price": 1234.5, "change_pct": 1.2, "volume": 850000000.0},
+    {"ticker": "GARAN", "name": "Garanti BBVA", "last_price": 121.5, "change_pct": -2.1, "volume": 650000000.0},
+]
 MOCK_GAINERS = [
     {"ticker": "THYAO", "last_price": 313.4, "change_pct": 0.93},
     {"ticker": "ASELS", "last_price": 1234.5, "change_pct": 1.2},
@@ -115,11 +120,13 @@ def make_handler(
     stats_top: list[dict[str, Any]] | None = None,
     gainers: list[dict[str, Any]] | None = None,
     losers: list[dict[str, Any]] | None = None,
+    popular: list[dict[str, Any]] | None = None,
     gold: list[dict[str, Any]] | None = None,
     currency: dict[str, Any] | None = None,
     rate_limit_path: str | None = None,
     retry_after: str = "30",
     favorites: list[str] | None = None,
+    favorites_summary: list[dict[str, Any]] | None = None,
     prices: dict[str, dict[str, Any]] | None = None,
     price_fail_tickers: set[str] | None = None,
     company_info: dict[str, dict[str, Any]] | None = None,
@@ -166,12 +173,35 @@ def make_handler(
             return httpx.Response(200, json=rows)
         if path.endswith("/companies/summary"):
             sort = request.url.params.get("sort", "popular")
+            tickers_param = request.url.params.get("tickers")
+            if tickers_param:
+                if favorites_summary is not None:
+                    return httpx.Response(200, json=favorites_summary)
+                fav_list = [t.strip() for t in tickers_param.split(",") if t.strip()]
+                all_stocks = (
+                    (popular if popular is not None else MOCK_POPULAR)
+                    + (gainers if gainers is not None else MOCK_GAINERS)
+                    + (losers if losers is not None else MOCK_LOSERS)
+                )
+                stock_map = {s["ticker"]: s for s in all_stocks}
+                return httpx.Response(
+                    200,
+                    json=[
+                        stock_map.get(
+                            t,
+                            {"ticker": t, "name": t, "last_price": 100.0, "change_pct": 0.0},
+                        )
+                        for t in fav_list
+                    ],
+                )
             if sort == "gainers":
                 rows = MOCK_GAINERS if gainers is None else gainers
             elif sort == "losers":
                 rows = MOCK_LOSERS if losers is None else losers
+            elif sort == "popular":
+                rows = MOCK_POPULAR if popular is None else popular
             else:
-                rows = []
+                rows = MOCK_POPULAR if popular is None else popular
             return httpx.Response(200, json=rows)
         if "/companies/info/" in path:
             ticker = path.rstrip("/").split("/")[-1]

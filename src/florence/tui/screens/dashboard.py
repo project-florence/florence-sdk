@@ -1,19 +1,22 @@
-"""PANO ekrani (DashboardScreen) — docs/tui-design.md §2.1.
+"""PANO ekranı (DashboardScreen) — Web benzeri kart yerleşimi.
 
 Layout:
-- Ust bar: piyasa durumu (AÇIK/KAPALI/TATİL + next_open_at) + son guncelleme.
-- Orta (2 panel): ONE CIKANLAR (stats_top) ve GUNUN HAREKETLERI
-  (companies_summary gainers/losers; ``g``/``l``/Tab ile sekme).
-- Alt serit: altin (gold_prices) + doviz (currency) ozeti.
+- Üst bar: piyasa durumu (AÇIK/KAPALI/TATİL + next_open_at) + son güncelleme.
+- Favoriler Kart Şeridi (FavoritesCard): Yıldızlı takip listesi (Ticker, Fiyat, Δ%, mini trend).
+- Orta Satır (2 panel):
+  - POPÜLER BİST HİSSELERİ (popular): Ticker, Şirket, Fiyat, Δ%, Hacim
+  - GÜNÜN HAREKETLERİ (movers): Yükselenler / Düşenler (`g`/`l`/Tab ile sekme)
+- Alt Satır (2 kart):
+  - GÜNÜN PİYASA BÜLTENİ (DigestCard): AI bülten özeti + `[3]` veya tıklama ile tam bülten
+  - DÖVİZ & ALTIN PİYASASI (EconomyCard): USD, EUR, Gram Altın, Çeyrek Altın kartları
+- Navigasyon: Satır seçip `Enter` veya tıklama ile `DetailScreen`'e geçiş.
 
-Yukleme/hata/429 durumlari: her panel kendi placeholder'i ile baslar
-(``Yükleniyor…``); hata banner'i uste cikar, onceki veri silinmez.
-Auth yoksa auth-gerektiren bolumler 'Giris yapin (fl auth login)' uyarisi
-gosterir (canli backend dogrulamasi: stats_top/companies_summary/economy
-allowlist'te degil).
+Yükleme/hata/429 durumları: her panel kendi placeholder'ı ile başlar (`Yükleniyor…`);
+hata banner'ı üste çıkar, önceki veri silinmez. Auth yoksa auth-gerektiren bölümler
+'Giriş yapın (fl auth login)' uyarısı gösterir.
 
-Veri mantigi YOKTUR: poll worker'i ``DataHub.fetch_dashboard`` sonucunu
-``DashboardDataUpdated`` mesajiyla tasir; bu ekran yalnizca sunum yapar.
+Veri mantığı: poll worker'ı `DataHub.fetch_dashboard` sonucunu `DashboardDataUpdated`
+mesajıyla taşır; bu ekran yalnızca sunum yapar.
 """
 
 from __future__ import annotations
@@ -30,6 +33,7 @@ from textual.screen import Screen
 from textual.widgets import ContentSwitcher, DataTable, Static
 
 from ..banner import banner_text
+from ..charts import spark_text
 from ..data import (
     DashboardSnapshot,
     delta_style,
@@ -39,9 +43,34 @@ from ..data import (
     tr_number,
 )
 from ..keys import KEY_GAINERS, KEY_LOSERS, KEY_OPEN_DETAIL, KEY_TOGGLE_MOVERS
-from ..widgets.nav import NavBar
+from ..widgets.nav import AppHeader
 
-__all__ = ["DashboardDataFailed", "DashboardDataUpdated", "DashboardScreen"]
+__all__ = [
+    "DashboardDataFailed",
+    "DashboardDataUpdated",
+    "DashboardScreen",
+    "DataPanel",
+    "DigestCard",
+    "EconomyCard",
+    "FavoritesCard",
+]
+
+
+def _format_volume(val: Any) -> str:
+    """Hacim değerini Türkçe finansal gösterime çevirir."""
+    if val is None:
+        return "—"
+    try:
+        n = float(val)
+    except (TypeError, ValueError):
+        return str(val)
+    if n >= 1_000_000_000:
+        return f"₺{n / 1_000_000_000:.2f} Mr".replace(".", ",")
+    if n >= 1_000_000:
+        return f"₺{n / 1_000_000:.1f} Mn".replace(".", ",")
+    if n >= 1_000:
+        return f"₺{n / 1_000:.0f} B".replace(".", ",")
+    return f"₺{n:,.0f}".replace(",", ".")
 
 
 # ----------------------------------------------------------------------
@@ -81,6 +110,9 @@ class DataPanel(Vertical):
         border: round $primary 40%;
         padding: 0 1 1 1;
     }
+    DataPanel:focus-within {
+        border: round $primary;
+    }
     DataPanel > Static.panel-title {
         text-style: bold;
         padding: 0 0 1 0;
@@ -103,11 +135,10 @@ class DataPanel(Vertical):
         id: str | None = None,
     ) -> None:
         super().__init__(id=id)
+        self._table_id = table_id
         self._title_static = Static(title, classes="panel-title")
         self._table = DataTable(id=table_id, cursor_type="row", zebra_stripes=True)
         self._table.add_columns(*columns)
-        # ContentSwitcher pane'leri cocuk id'leriyle adreslenir; tablo pane'i
-        # kendi id'siyle ("table" durumu) secilir.
         self._switcher = ContentSwitcher(
             Static("Yükleniyor…", id=f"{table_id}-loading"),
             Static("Giriş yapın (fl auth login)", id=f"{table_id}-auth"),
@@ -115,6 +146,7 @@ class DataPanel(Vertical):
             Static("Veri alınamadı", id=f"{table_id}-error"),
             self._table,
             initial=f"{table_id}-loading",
+            id=f"{table_id}-switcher",
         )
 
     def compose(self) -> ComposeResult:
@@ -125,16 +157,16 @@ class DataPanel(Vertical):
         self._title_static.update(title)
 
     def set_state(self, state: str) -> None:
-        pane_id = self._table.id if state == "table" else f"{self._table.id}-{state}"
+        pane_id = self._table_id if state == "table" else f"{self._table_id}-{state}"
         self._switcher.current = pane_id
 
     def current_state(self) -> str | None:
         current = self._switcher.current
         if current is None:
             return None
-        if current == self._table.id:
+        if current == self._table_id:
             return "table"
-        prefix = f"{self._table.id}-"
+        prefix = f"{self._table_id}-"
         if current.startswith(prefix):
             return current[len(prefix) :]
         return current
@@ -145,10 +177,213 @@ class DataPanel(Vertical):
 
 
 # ----------------------------------------------------------------------
-# Pano ekrani
+# Favoriler Kart Şeridi
+# ----------------------------------------------------------------------
+class FavoritesCard(Vertical):
+    """Yıldızlı favori hisseler kart şeridi."""
+
+    DEFAULT_CSS = """
+    FavoritesCard {
+        height: auto;
+        min-height: 3;
+        border: round $primary 40%;
+        padding: 0 1;
+        margin: 0 0 1 0;
+    }
+    FavoritesCard:focus-within {
+        border: round $primary;
+    }
+    FavoritesCard > Static.card-title {
+        text-style: bold;
+        color: $accent;
+    }
+    FavoritesCard > ContentSwitcher {
+        height: auto;
+    }
+    FavoritesCard > ContentSwitcher > Static {
+        color: $text 60%;
+    }
+    """
+
+    def __init__(self, id: str | None = None) -> None:
+        super().__init__(id=id)
+        self._title_static = Static("★ TAKİP LİSTESİ", classes="card-title")
+        self._content_static = Static("", id="favorites-content")
+        self._switcher = ContentSwitcher(
+            Static("Yükleniyor…", id="favorites-loading"),
+            Static("Giriş yapın (fl auth login)", id="favorites-auth"),
+            Static("★ Henüz favori hisse eklenmedi (fl portfolio favorite add <KOD>)", id="favorites-empty"),
+            Static("Veri alınamadı", id="favorites-error"),
+            self._content_static,
+            initial="favorites-loading",
+            id="favorites-switcher",
+        )
+
+    def compose(self) -> ComposeResult:
+        yield self._title_static
+        yield self._switcher
+
+    def set_state(self, state: str) -> None:
+        pane_id = "favorites-content" if state == "content" else f"favorites-{state}"
+        self._switcher.current = pane_id
+
+    def current_state(self) -> str | None:
+        current = self._switcher.current
+        if current is None:
+            return None
+        if current == "favorites-content":
+            return "content"
+        if current.startswith("favorites-"):
+            return current[len("favorites-") :]
+        return current
+
+    def update_content(self, text: str) -> None:
+        self._content_static.update(text)
+
+
+# ----------------------------------------------------------------------
+# Günün Bülteni Kartı
+# ----------------------------------------------------------------------
+class DigestCard(Vertical):
+    """Günün AI piyasa bülteni özet kartı."""
+
+    DEFAULT_CSS = """
+    DigestCard {
+        height: 1fr;
+        border: round $primary 40%;
+        padding: 0 1 1 1;
+        margin-right: 1;
+    }
+    DigestCard:focus-within, DigestCard:hover {
+        border: round $accent;
+    }
+    DigestCard > Static.card-title {
+        text-style: bold;
+        color: $primary;
+        padding: 0 0 1 0;
+    }
+    DigestCard > ContentSwitcher {
+        height: 1fr;
+    }
+    DigestCard > ContentSwitcher > Static {
+        color: $text 60%;
+    }
+    """
+
+    def __init__(self, id: str | None = None) -> None:
+        super().__init__(id=id)
+        self._title_static = Static("✦ GÜNÜN PİYASA BÜLTENİ", classes="card-title")
+        self._content_static = Static("", id="digest-content")
+        self._switcher = ContentSwitcher(
+            Static("Yükleniyor…", id="digest-loading"),
+            Static("Giriş yapın (fl auth login)", id="digest-auth"),
+            Static("Bugün için bülten bulunmuyor", id="digest-empty"),
+            Static("Bülten alınamadı", id="digest-error"),
+            self._content_static,
+            initial="digest-loading",
+            id="digest-switcher",
+        )
+
+    def compose(self) -> ComposeResult:
+        yield self._title_static
+        yield self._switcher
+
+    def on_click(self) -> None:
+        go_digest = getattr(self.app, "action_go_digest", None)
+        if callable(go_digest):
+            go_digest()
+
+    def set_state(self, state: str) -> None:
+        pane_id = "digest-content" if state == "content" else f"digest-{state}"
+        self._switcher.current = pane_id
+
+    def current_state(self) -> str | None:
+        current = self._switcher.current
+        if current is None:
+            return None
+        if current == "digest-content":
+            return "content"
+        if current.startswith("digest-"):
+            return current[len("digest-") :]
+        return current
+
+    def update_content(self, text: str) -> None:
+        self._content_static.update(text)
+
+
+# ----------------------------------------------------------------------
+# Döviz & Altın Piyasası Kartı
+# ----------------------------------------------------------------------
+class EconomyCard(Vertical):
+    """Döviz ve Altın piyasası özet kartı."""
+
+    DEFAULT_CSS = """
+    EconomyCard {
+        height: 1fr;
+        border: round $primary 40%;
+        padding: 0 1 1 1;
+    }
+    EconomyCard:focus-within, EconomyCard:hover {
+        border: round $primary;
+    }
+    EconomyCard > Static.card-title {
+        text-style: bold;
+        padding: 0 0 1 0;
+    }
+    EconomyCard > ContentSwitcher {
+        height: 1fr;
+    }
+    EconomyCard > ContentSwitcher > Static {
+        color: $text 60%;
+    }
+    """
+
+    def __init__(self, id: str | None = None) -> None:
+        super().__init__(id=id)
+        self._title_static = Static("DÖVİZ & ALTIN PİYASASI", classes="card-title")
+        self._content_static = Static("", id="economy-content")
+        self._switcher = ContentSwitcher(
+            Static("Yükleniyor…", id="economy-loading"),
+            Static("Altın/döviz için giriş yapın: fl auth login", id="economy-auth"),
+            Static("Veri yok", id="economy-empty"),
+            Static("Veri alınamadı", id="economy-error"),
+            self._content_static,
+            initial="economy-loading",
+            id="economy-switcher",
+        )
+
+    def compose(self) -> ComposeResult:
+        yield self._title_static
+        yield self._switcher
+
+    def on_click(self) -> None:
+        go_economy = getattr(self.app, "action_go_economy", None)
+        if callable(go_economy):
+            go_economy()
+
+    def set_state(self, state: str) -> None:
+        pane_id = "economy-content" if state == "content" else f"economy-{state}"
+        self._switcher.current = pane_id
+
+    def current_state(self) -> str | None:
+        current = self._switcher.current
+        if current is None:
+            return None
+        if current == "economy-content":
+            return "content"
+        if current.startswith("economy-"):
+            return current[len("economy-") :]
+        return current
+
+    def update_content(self, text: str) -> None:
+        self._content_static.update(text)
+
+
+# ----------------------------------------------------------------------
+# Pano ekranı
 # ----------------------------------------------------------------------
 class DashboardScreen(Screen[None]):
-    """PANO: piyasanin 10 saniyelik ozeti (tasarim §2.1)."""
+    """PANO: web benzeri kart tasarımlı BİST genel bakış ekranı."""
 
     BINDINGS = [
         Binding(KEY_GAINERS, "show_gainers", "Yükselenler"),
@@ -170,17 +405,6 @@ class DashboardScreen(Screen[None]):
         text-style: bold;
         background: $panel;
     }
-    #favorites-bar {
-        padding: 0 1;
-        height: auto;
-        color: $accent;
-        background: $surface;
-    }
-    #digest-snippet {
-        padding: 0 1;
-        color: $primary;
-        background: $panel;
-    }
     #banner {
         display: none;
         padding: 0 1;
@@ -190,13 +414,15 @@ class DashboardScreen(Screen[None]):
     #banner.visible {
         display: block;
     }
-    #panels-row {
+    #middle-row {
         height: 1fr;
+        min-height: 10;
+        margin: 0 0 1 0;
     }
-    #economy-strip {
-        padding: 0 1;
-        border-top: solid $primary 40%;
-        background: $panel;
+    #bottom-row {
+        height: auto;
+        min-height: 6;
+        margin: 0 0 1 0;
     }
     """
 
@@ -204,23 +430,20 @@ class DashboardScreen(Screen[None]):
         super().__init__()
         self._movers_sort = "gainers"
         self._last_snapshot: DashboardSnapshot | None = None
-        #: Banner yalnizca ILK acilista cizilir (B2) — sonraki mount'larda
-        #: yeniden render edilmez (icerik ayni; flag idempotent kilma).
         self._banner_set = False
 
     def compose(self) -> ComposeResult:
         with Vertical(id="dashboard-root"):
-            yield Static("", id="banner-art")
-            yield NavBar(active="dashboard")
+            yield AppHeader(active="dashboard")
             yield Static("Piyasa durumu yükleniyor…", id="status-bar")
-            yield Static("", id="favorites-bar")
+            yield FavoritesCard(id="favorites-card")
             yield Static("", id="banner")
-            with Horizontal(id="panels-row"):
+            with Horizontal(id="middle-row"):
                 yield DataPanel(
-                    "ÖNE ÇIKANLAR (ilgi)",
-                    "stats-top",
-                    ("Ticker", "İlgi"),
-                    id="stats-panel",
+                    "POPÜLER BİST HİSSELERİ",
+                    "popular-table",
+                    ("Ticker", "Şirket", "Fiyat", "Δ%", "Hacim"),
+                    id="popular-panel",
                 )
                 yield DataPanel(
                     "GÜNÜN HAREKETLERİ — Yükselenler",
@@ -228,33 +451,31 @@ class DashboardScreen(Screen[None]):
                     ("Ticker", "Fiyat", "Δ%"),
                     id="movers-panel",
                 )
-            yield Static("", id="digest-snippet")
-            yield Static("", id="economy-strip")
+            with Horizontal(id="bottom-row"):
+                yield DigestCard(id="digest-card")
+                yield EconomyCard(id="economy-card")
 
     # ------------------------------------------------------------------
-    # Yasam dongusu
+    # Yaşam döngüsü
     # ------------------------------------------------------------------
     def on_mount(self) -> None:
-        # Acilis banner'i (B2): yalnizca ilk mount'ta, tema renkleriyle.
-        # Poll tick'leri bu widget'a dokunmaz — veri update'leri yalnizca
-        # #status-bar / panelleri gunceller.
         if not self._banner_set:
             self._banner_set = True
             art = self.query_one("#banner-art", Static)
             art.update(Text.from_ansi(banner_text(self.app.theme_variables)))
 
     # ------------------------------------------------------------------
-    # Mesaj handler'lari
+    # Mesaj handler'ları
     # ------------------------------------------------------------------
     def on_dashboard_data_updated(self, message: DashboardDataUpdated) -> None:
         self._last_snapshot = message.snapshot
         snap = message.snapshot
         self._render_status(snap.market_status, snap.fetched_at)
         self._render_favorites(snap)
-        self._render_stats_panel(snap)
+        self._render_popular_panel(snap)
         self._render_movers_panel(snap)
-        self._render_digest_snippet(snap)
-        self._render_economy(snap)
+        self._render_digest_card(snap)
+        self._render_economy_card(snap)
         self._render_banner(snap)
 
     def on_dashboard_data_failed(self, message: DashboardDataFailed) -> None:
@@ -265,7 +486,7 @@ class DashboardScreen(Screen[None]):
         self._show_banner(text)
 
     # ------------------------------------------------------------------
-    # Tus eylemleri
+    # Tuş ve etkileşim eylemleri
     # ------------------------------------------------------------------
     def action_show_gainers(self) -> None:
         self._movers_sort = "gainers"
@@ -280,7 +501,7 @@ class DashboardScreen(Screen[None]):
         self._refresh_movers()
 
     def action_open_detail(self) -> None:
-        """Seçili ticker detay ekranina gider (statis-top veya movers)."""
+        """Seçili ticker detay ekranına gider (popular-panel veya movers-panel)."""
         ticker = self._selected_ticker()
         if not ticker:
             return
@@ -288,8 +509,21 @@ class DashboardScreen(Screen[None]):
         if callable(open_detail):
             open_detail(ticker)
 
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        """Tablo üzerinde Enter'a basıldığında veya tıklandığında seçili hissenin Detay ekranını açar."""
+        try:
+            row = list(event.data_table.get_row_at(event.cursor_row))
+            if row:
+                val = row[0]
+                ticker = str(val.plain if hasattr(val, "plain") else val).strip()
+                open_detail = getattr(self.app, "open_detail", None)
+                if callable(open_detail):
+                    open_detail(ticker)
+        except Exception:
+            pass
+
     # ------------------------------------------------------------------
-    # Render yardimcilari
+    # Render yardımcıları
     # ------------------------------------------------------------------
     def _refresh_movers(self) -> None:
         panel = self.query_one("#movers-panel", DataPanel)
@@ -302,25 +536,33 @@ class DashboardScreen(Screen[None]):
         bar = self.query_one("#status-bar", Static)
         bar.update(status_bar_text(status, fetched_at))
 
-    def _render_stats_panel(self, snap: DashboardSnapshot) -> None:
-        panel = self.query_one("#stats-panel", DataPanel)
-        if "stats_top" in snap.auth_sections:
+    def _render_popular_panel(self, snap: DashboardSnapshot) -> None:
+        panel = self.query_one("#popular-panel", DataPanel)
+        if "popular" in snap.auth_sections:
             panel.set_state("auth")
             return
-        if snap.stats_top is None:
-            panel.set_state("error" if snap.errors.get("stats_top") else "loading")
+        if snap.popular is None:
+            panel.set_state("error" if snap.errors.get("popular") else "loading")
             return
-        if not snap.stats_top:
+        if not snap.popular:
             panel.set_state("empty")
             return
         table = panel.table
         table.clear()
-        for i, row in enumerate(snap.stats_top):
+        for row in snap.popular:
             ticker = str(row.get("ticker", "—"))
-            # Gercek backend semasi: {"ticker", "name", ..., "total"} — toplam ilgi.
-            total = row.get("total") or 0
-            cell = Text(str(total), style="$primary" if i == 0 else "")
-            table.add_row(ticker, cell)
+            name = str(row.get("name", "—"))
+            name_disp = name[:18] if len(name) > 18 else name
+            price = tr_number(row.get("last_price"))
+            delta = tr_delta(row.get("change_pct"))
+            vol = _format_volume(row.get("volume"))
+            table.add_row(
+                Text(ticker, style="bold"),
+                Text(name_disp),
+                price,
+                Text(delta, style=delta_style(row.get("change_pct"))),
+                vol,
+            )
         panel.set_state("table")
 
     def _render_movers_panel(self, snap: DashboardSnapshot) -> None:
@@ -340,19 +582,26 @@ class DashboardScreen(Screen[None]):
         table.clear()
         for row in rows:
             ticker = str(row.get("ticker", "—"))
-            # Gercek backend semasi: "last_price" (companies/summary).
             price = tr_number(row.get("last_price"))
             delta = tr_delta(row.get("change_pct"))
-            table.add_row(ticker, price, Text(delta, style=delta_style(row.get("change_pct"))))
+            table.add_row(
+                Text(ticker, style="bold"),
+                price,
+                Text(delta, style=delta_style(row.get("change_pct"))),
+            )
         panel.set_state("table")
 
     def _render_favorites(self, snap: DashboardSnapshot) -> None:
-        bar = self.query_one("#favorites-bar", Static)
-        if "favorites" in snap.auth_sections:
-            bar.update("")
+        card = self.query_one("#favorites-card", FavoritesCard)
+        if "favorites" in snap.auth_sections or "favorites_summary" in snap.auth_sections:
+            card.set_state("auth")
+            return
+        if snap.favorites_summary is None:
+            failed = bool(snap.errors.get("favorites_summary") or snap.errors.get("favorites"))
+            card.set_state("error" if failed else "loading")
             return
         if not snap.favorites_summary:
-            bar.update("")
+            card.set_state("empty")
             return
         items = []
         for c in snap.favorites_summary[:6]:
@@ -361,22 +610,94 @@ class DashboardScreen(Screen[None]):
             delta = tr_delta(c.get("change_pct"))
             style_name = delta_style(c.get("change_pct"))
             color = self._resolve_color(style_name)
-            items.append(f"[bold]{ticker}[/bold] {price} ([{color}]{delta}[/{color}])")
-        bar.update("[bold yellow]★ Takip:[/] " + "  │  ".join(items))
+            trend = self._render_mini_trend(c)
+            items.append(f"[bold yellow]★ {ticker}[/bold yellow] {price} ([{color}]{delta}[/{color}] {trend})")
+        card.update_content("  │  ".join(items))
+        card.set_state("content")
 
-    def _render_digest_snippet(self, snap: DashboardSnapshot) -> None:
-        snippet = self.query_one("#digest-snippet", Static)
-        if not snap.digest or not isinstance(snap.digest, dict):
-            snippet.update("")
+    def _render_mini_trend(self, company: dict[str, Any]) -> str:
+        spark = company.get("sparkline") or company.get("close_values")
+        if isinstance(spark, list) and spark:
+            st = spark_text(spark, width=4)
+            ch = company.get("change_pct")
+            color = self._resolve_color(delta_style(ch))
+            return f"[{color}]{st}[/{color}]"
+        ch = company.get("change_pct")
+        if ch is None or ch == 0:
+            return "[grey]▬ ▄▄[/grey]"
+        color = self._resolve_color(delta_style(ch))
+        if ch > 0:
+            bars = " ▃▅" if ch < 2 else ("▃▅▇" if ch < 5 else "▅▆█")
+            return f"[{color}]▲ {bars}[/{color}]"
+        bars = "▅▃ " if ch > -2 else ("▇▅▃" if ch > -5 else "█▆▅")
+        return f"[{color}]▼ {bars}[/{color}]"
+
+    def _render_digest_card(self, snap: DashboardSnapshot) -> None:
+        card = self.query_one("#digest-card", DigestCard)
+        if "digest" in snap.auth_sections:
+            card.set_state("auth")
             return
-        title = snap.digest.get("title", "")
+        if snap.digest is None:
+            failed = bool(snap.errors.get("digest"))
+            card.set_state("error" if failed else "loading")
+            return
+        if not snap.digest or not isinstance(snap.digest, dict):
+            card.set_state("empty")
+            return
+        title = snap.digest.get("title", "Piyasa Bülteni")
         slot = str(snap.digest.get("slot", ""))
-        slot_map = {"morning": "Sabah", "noon": "Öğle", "evening": "Akşam"}
-        slot_lbl = slot_map.get(slot, slot.capitalize())
-        snippet.update(
-            f"[bold cyan]✦ Günün Bülteni ({slot_lbl}):[/bold cyan] {title}  "
-            f"[dim]([3] ile tam bülten)[/dim]"
+        slot_map = {"morning": "Sabah (09:30)", "noon": "Öğle (13:00)", "evening": "Akşam Kapanış (18:30)"}
+        slot_lbl = slot_map.get(slot, slot.capitalize() if slot else "Günlük")
+        content = str(snap.digest.get("content", "")).strip()
+        first_line = content.split("\n")[0] if content else "Piyasa özeti hazırlandı."
+        if len(first_line) > 100:
+            first_line = first_line[:97] + "..."
+        text = (
+            f"[bold cyan]✦ {title}[/bold cyan] [dim]({slot_lbl})[/dim]\n"
+            f"[italic]{first_line}[/italic]\n\n"
+            f"[dim cyan]➔ [3] tuşuna basarak veya tıklayarak tam bülteni açın[/dim cyan]"
         )
+        card.update_content(text)
+        card.set_state("content")
+
+    def _render_economy_card(self, snap: DashboardSnapshot) -> None:
+        card = self.query_one("#economy-card", EconomyCard)
+        if "gold" in snap.auth_sections or "currency" in snap.auth_sections:
+            card.set_state("auth")
+            return
+        if snap.gold is None and snap.currency is None:
+            failed = bool(snap.errors.get("gold") or snap.errors.get("currency"))
+            card.set_state("error" if failed else "loading")
+            return
+        if not snap.gold and not snap.currency:
+            card.set_state("empty")
+            return
+
+        usd_val = "—"
+        eur_val = "—"
+        if snap.currency:
+            usd_entry = snap.currency.get("USD")
+            if isinstance(usd_entry, dict) and usd_entry.get("buying"):
+                usd_val = str(usd_entry["buying"])
+            eur_entry = snap.currency.get("EUR")
+            if isinstance(eur_entry, dict) and eur_entry.get("buying"):
+                eur_val = str(eur_entry["buying"])
+
+        gram_val = "—"
+        ceyrek_val = "—"
+        if snap.gold:
+            for label, item in gold_summary(snap.gold):
+                if label == "Gram Altın":
+                    gram_val = str(item.get("Buying", "—"))
+                elif label == "Çeyrek Altın":
+                    ceyrek_val = str(item.get("Buying", "—"))
+
+        line1 = f"[bold yellow]USD/TRY[/] {usd_val}    [bold yellow]EUR/TRY[/] {eur_val}"
+        line2 = f"[bold yellow]Gram Altın[/] {gram_val}    [bold yellow]Çeyrek Altın[/] {ceyrek_val}"
+        line3 = "[dim][6] Ekonomi detayları için [6]'ya basın[/dim]"
+
+        card.update_content(f"{line1}\n{line2}\n\n{line3}")
+        card.set_state("content")
 
     def _resolve_color(self, var: str) -> str:
         if var.startswith("$"):
@@ -384,25 +705,6 @@ class DashboardScreen(Screen[None]):
             if value:
                 return str(value)
         return var
-
-    def _render_economy(self, snap: DashboardSnapshot) -> None:
-        strip = self.query_one("#economy-strip", Static)
-        if "gold" in snap.auth_sections:
-            strip.update("[grey]Altın/döviz için giriş yapın: fl auth login[/]")
-            return
-        if snap.gold is None and snap.currency is None:
-            failed = bool(snap.errors.get("gold") or snap.errors.get("currency"))
-            strip.update("[grey]Veri alınamadı[/]" if failed else "[grey]Yükleniyor…[/]")
-            return
-        parts: list[str] = []
-        for label, item in gold_summary(snap.gold or []):
-            parts.append(f"{label} {item.get('Buying', '—')}")
-        if snap.currency:
-            for sym in ("USD", "EUR"):
-                entry = snap.currency.get(sym)
-                if isinstance(entry, dict) and entry.get("buying"):
-                    parts.append(f"{sym}/TRY {entry['buying']}")
-        strip.update("  │  ".join(parts) if parts else "[grey]Veri yok[/]")
 
     def _render_banner(self, snap: DashboardSnapshot) -> None:
         if not snap.errors:
@@ -424,13 +726,29 @@ class DashboardScreen(Screen[None]):
         self.query_one("#banner", Static).remove_class("visible")
 
     def _selected_ticker(self) -> str | None:
-        for panel_id in ("stats-panel", "movers-panel"):
-            panel = self.query_one(f"#{panel_id}", DataPanel)
-            if panel.current_state() != "table":
+        for panel_id in ("popular-panel", "movers-panel"):
+            try:
+                panel = self.query_one(f"#{panel_id}", DataPanel)
+                if panel.current_state() != "table":
+                    continue
+                if panel.has_focus or any(w.has_focus for w in panel.walk_children()):
+                    row = self._table_cursor_row(panel.table)
+                    if row:
+                        val = row[0]
+                        return str(val.plain if hasattr(val, "plain") else val).strip()
+            except Exception:
                 continue
-            row = self._table_cursor_row(panel.table)
-            if row:
-                return str(row[0])
+        for panel_id in ("popular-panel", "movers-panel"):
+            try:
+                panel = self.query_one(f"#{panel_id}", DataPanel)
+                if panel.current_state() != "table":
+                    continue
+                row = self._table_cursor_row(panel.table)
+                if row:
+                    val = row[0]
+                    return str(val.plain if hasattr(val, "plain") else val).strip()
+            except Exception:
+                continue
         return None
 
     @staticmethod

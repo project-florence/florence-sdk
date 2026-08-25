@@ -29,7 +29,7 @@ from ..data import (
     tr_number,
 )
 from ..keys import KEY_GAINERS, KEY_LOSERS, KEY_OPEN_DETAIL, KEY_POPULAR
-from ..widgets.nav import NavBar
+from ..widgets.nav import AppHeader
 
 __all__ = ["StocksDataFailed", "StocksDataUpdated", "StocksScreen"]
 
@@ -109,7 +109,7 @@ class StocksScreen(Screen[None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="stocks-root"):
-            yield NavBar(active="stocks")
+            yield AppHeader(active="stocks")
             yield Static("Piyasa durumu yükleniyor…", id="stocks-status")
             yield Static("", id="banner")
             yield Static(self._sort_bar_text(), id="stocks-sort-bar")

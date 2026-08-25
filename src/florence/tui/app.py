@@ -93,8 +93,8 @@ class HelpModal(ModalScreen[None]):
         lines = [
             "[b]fl tui — tuş haritası[/]",
             "",
-            "[b]q[/] Çıkış      [b]1[/] Pano       [b]2[/] İzleme    [b]3[/] Bülten",
-            "[b]4[/] Portföy    [b]5[/] Hisseler   [b]6[/] Ekonomi   [b]r[/] Yenile",
+            "[b]q[/] Çıkış      [b]1[/] Pano       [b]2[/] Hisseler   [b]3[/] İzleme",
+            "[b]4[/] Bülten     [b]5[/] Portföy    [b]6[/] Ekonomi    [b]r[/] Yenile",
             "[b]j[/]/[b]k[/] Satır   [b]enter[/] Detay   [b]h[/] Yardım   [b]esc[/] Geri",
             "[b]1[/]/[b]3[/]/[b]6[/]/[b]y[/] Grafik dönemi   [b]c[/] Çizgi/Mum grafiği",
             "",
@@ -108,7 +108,7 @@ class HelpModal(ModalScreen[None]):
 
 
 class FlorenceTUI(App[None]):
-    """``fl tui`` uygulamasi (pano + izleme + bülten + portföy + hisseler + ekonomi + detay/grafik)."""
+    """``fl tui`` uygulamasi (pano + hisseler + izleme + bülten + portföy + ekonomi + detay/grafik)."""
 
     TITLE = "Florence · fl tui"
     SUB_TITLE = "BIST canlı özet"
@@ -122,10 +122,10 @@ class FlorenceTUI(App[None]):
     BINDINGS = [
         Binding(keys.KEY_QUIT, "quit", "Çıkış"),
         Binding(keys.KEY_DASHBOARD, "go_dashboard", "Pano"),
+        Binding(keys.KEY_STOCKS, "go_stocks", "Hisseler", show=False),
         Binding(keys.KEY_WATCHLIST, "go_watchlist", "İzleme", show=False),
         Binding(keys.KEY_DIGEST, "go_digest", "Bülten", show=False),
         Binding(keys.KEY_PORTFOLIO, "go_portfolio", "Portföy", show=False),
-        Binding(keys.KEY_STOCKS, "go_stocks", "Hisseler", show=False),
         Binding(keys.KEY_ECONOMY, "go_economy", "Ekonomi", show=False),
         Binding(keys.KEY_REFRESH, "refresh", "Yenile"),
         Binding(keys.KEY_HELP, "help", "Yardım"),
@@ -298,10 +298,20 @@ class FlorenceTUI(App[None]):
         self._poll_timer = self.set_interval(delay, self._on_poll_tick)
 
     # ------------------------------------------------------------------
-    # Global eylemler
+    # Global eylemler & Ekran senkronizasyonu
     # ------------------------------------------------------------------
+    def switch_screen(self, screen: Any, **kwargs: Any) -> Any:
+        screen_name = screen if isinstance(screen, str) else getattr(screen, "name", None)
+        current = self.screen
+        if screen_name == "portfolio" and current is not None and not isinstance(current, PortfolioScreen):
+            self._screen_before_portfolio = current
+        return super().switch_screen(screen, **kwargs)
+
     def action_go_dashboard(self) -> None:
         self.switch_screen("dashboard")
+
+    def action_go_stocks(self) -> None:
+        self.switch_screen("stocks")
 
     def action_go_watchlist(self) -> None:
         self.switch_screen("watchlist")
@@ -310,13 +320,7 @@ class FlorenceTUI(App[None]):
         self.switch_screen("digest")
 
     def action_go_portfolio(self) -> None:
-        current = self.screen
-        if current is not None and not isinstance(current, PortfolioScreen):
-            self._screen_before_portfolio = current
         self.switch_screen("portfolio")
-
-    def action_go_stocks(self) -> None:
-        self.switch_screen("stocks")
 
     def action_go_economy(self) -> None:
         self.switch_screen("economy")

@@ -16,7 +16,7 @@ from textual.screen import Screen
 from textual.widgets import ContentSwitcher, Static
 
 from ..data import DigestSnapshot, status_bar_text
-from ..widgets.nav import NavBar
+from ..widgets.nav import AppHeader
 
 __all__ = ["DigestDataFailed", "DigestDataUpdated", "DigestScreen"]
 
@@ -72,7 +72,7 @@ class DigestScreen(Screen[None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="digest-root"):
-            yield NavBar(active="digest")
+            yield AppHeader(active="digest")
             yield Static("Piyasa durumu yükleniyor…", id="digest-status")
             yield Static("", id="banner")
             with ContentSwitcher(id="digest-switcher", initial="digest-loading"):

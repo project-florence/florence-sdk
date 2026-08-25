@@ -38,7 +38,7 @@ from ..data import (
     tr_number,
 )
 from ..keys import KEY_OPEN_DETAIL
-from ..widgets.nav import NavBar
+from ..widgets.nav import AppHeader
 
 __all__ = ["WatchlistDataFailed", "WatchlistDataUpdated", "WatchlistScreen", "trend_cell"]
 
@@ -160,7 +160,7 @@ class WatchlistScreen(Screen[None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="watchlist-root"):
-            yield NavBar(active="watchlist")
+            yield AppHeader(active="watchlist")
             yield Static("Piyasa durumu yükleniyor…", id="watchlist-status")
             yield Static("", id="banner")
             yield Static("İZLEME LİSTESİ (favoriler)", id="watchlist-title")

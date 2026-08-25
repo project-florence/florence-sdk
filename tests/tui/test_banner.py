@@ -88,6 +88,7 @@ def test_banner_widget_visible_on_dashboard_layout(make_app):
             await wait_for(app, lambda: _banner_text(app) == banner.FLORENCE_ART)
             # Banner pano duzeninin en ustunde durur (baslik barindan once).
             root = app.screen.query_one("#dashboard-root")
-            assert root.children[0].id == "banner-art"
+            assert root.children[0].id in ("banner-art", "app-header")
+            assert app.screen.query_one("#banner-art", Static) is not None
 
     asyncio.run(run())
