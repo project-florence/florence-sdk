@@ -294,10 +294,15 @@ def status_bar_text(status: dict[str, Any] | None, fetched_at: datetime) -> str:
 
 
 def _format_open_time(raw: Any) -> str:
-    """ISO next_open_at -> yerel saat ('10:00'); gecersizse ham metin."""
+    """ISO next_open_at -> saat ('10:00'); gecersizse ham metin."""
     try:
         dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
-        return dt.astimezone().strftime("%H:%M")
+        try:
+            from zoneinfo import ZoneInfo
+
+            return dt.astimezone(ZoneInfo("Europe/Istanbul")).strftime("%H:%M")
+        except Exception:
+            return dt.strftime("%H:%M")
     except ValueError:
         return str(raw)
 
