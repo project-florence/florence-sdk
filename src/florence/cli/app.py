@@ -73,6 +73,7 @@ def _main_callback(
 from . import (  # noqa: E402  (dairesel bagimliligi onlemek icin sonra import)
     commands_analysis,
     commands_auth,
+    commands_digest,
     commands_export,
     commands_helpers,
     commands_market,
@@ -108,6 +109,11 @@ app.add_typer(
     commands_helpers.helper_app,
     name="helper",
     help="Semantik yardımcı kompozitler (tek niyet = tek komut).",
+)
+app.add_typer(
+    commands_digest.digest_app,
+    name="digest",
+    help="Piyasa bülteni (fl digest / fl digest --slot morning).",
 )
 # Duzlestirilmis analiz gruplari (karar 2026-08-14): fl report <ticker> =
 # generate, fl simulate <ticker> --days N = run (alt komutlariyla birlikte).

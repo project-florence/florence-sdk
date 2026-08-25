@@ -31,9 +31,10 @@ DEFAULT_CHART = "line"
 KEY_QUIT = "q"
 KEY_DASHBOARD = "1"
 KEY_WATCHLIST = "2"
-#: ``4`` — portfoy ekrani (Faz E, P7). ``p`` KULLANILMAZ (çakışma yok;
-#: tui-design.md §3.1'deki v2 notu 4'ü öngörür).
+KEY_DIGEST = "3"
 KEY_PORTFOLIO = "4"
+KEY_STOCKS = "5"
+KEY_ECONOMY = "6"
 KEY_REFRESH = "r"
 KEY_HELP = "h"
 
@@ -42,6 +43,7 @@ KEY_HELP = "h"
 # ----------------------------------------------------------------------
 KEY_GAINERS = "g"
 KEY_LOSERS = "l"
+KEY_POPULAR = "p"
 KEY_TOGGLE_MOVERS = "tab"
 KEY_OPEN_DETAIL = "enter"
 
@@ -60,14 +62,18 @@ __all__ = [
     "KEY_BACK",
     "KEY_CHART_TOGGLE",
     "KEY_DASHBOARD",
+    "KEY_DIGEST",
+    "KEY_ECONOMY",
     "KEY_FAVORITE",
     "KEY_GAINERS",
     "KEY_HELP",
     "KEY_LOSERS",
     "KEY_OPEN_DETAIL",
+    "KEY_POPULAR",
     "KEY_PORTFOLIO",
     "KEY_QUIT",
     "KEY_REFRESH",
+    "KEY_STOCKS",
     "KEY_TOGGLE_MOVERS",
     "KEY_WATCHLIST",
     "PERIOD_LABELS",

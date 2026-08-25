@@ -39,6 +39,7 @@ from ..data import (
     tr_number,
 )
 from ..keys import KEY_GAINERS, KEY_LOSERS, KEY_OPEN_DETAIL, KEY_TOGGLE_MOVERS
+from ..widgets.nav import NavBar
 
 __all__ = ["DashboardDataFailed", "DashboardDataUpdated", "DashboardScreen"]
 
@@ -169,6 +170,17 @@ class DashboardScreen(Screen[None]):
         text-style: bold;
         background: $panel;
     }
+    #favorites-bar {
+        padding: 0 1;
+        height: auto;
+        color: $accent;
+        background: $surface;
+    }
+    #digest-snippet {
+        padding: 0 1;
+        color: $primary;
+        background: $panel;
+    }
     #banner {
         display: none;
         padding: 0 1;
@@ -199,7 +211,9 @@ class DashboardScreen(Screen[None]):
     def compose(self) -> ComposeResult:
         with Vertical(id="dashboard-root"):
             yield Static("", id="banner-art")
+            yield NavBar(active="dashboard")
             yield Static("Piyasa durumu yükleniyor…", id="status-bar")
+            yield Static("", id="favorites-bar")
             yield Static("", id="banner")
             with Horizontal(id="panels-row"):
                 yield DataPanel(
@@ -214,6 +228,7 @@ class DashboardScreen(Screen[None]):
                     ("Ticker", "Fiyat", "Δ%"),
                     id="movers-panel",
                 )
+            yield Static("", id="digest-snippet")
             yield Static("", id="economy-strip")
 
     # ------------------------------------------------------------------
@@ -235,8 +250,10 @@ class DashboardScreen(Screen[None]):
         self._last_snapshot = message.snapshot
         snap = message.snapshot
         self._render_status(snap.market_status, snap.fetched_at)
+        self._render_favorites(snap)
         self._render_stats_panel(snap)
         self._render_movers_panel(snap)
+        self._render_digest_snippet(snap)
         self._render_economy(snap)
         self._render_banner(snap)
 
@@ -328,6 +345,45 @@ class DashboardScreen(Screen[None]):
             delta = tr_delta(row.get("change_pct"))
             table.add_row(ticker, price, Text(delta, style=delta_style(row.get("change_pct"))))
         panel.set_state("table")
+
+    def _render_favorites(self, snap: DashboardSnapshot) -> None:
+        bar = self.query_one("#favorites-bar", Static)
+        if "favorites" in snap.auth_sections:
+            bar.update("")
+            return
+        if not snap.favorites_summary:
+            bar.update("")
+            return
+        items = []
+        for c in snap.favorites_summary[:6]:
+            ticker = str(c.get("ticker", ""))
+            price = tr_number(c.get("last_price"))
+            delta = tr_delta(c.get("change_pct"))
+            style_name = delta_style(c.get("change_pct"))
+            color = self._resolve_color(style_name)
+            items.append(f"[bold]{ticker}[/bold] {price} ([{color}]{delta}[/{color}])")
+        bar.update("[bold yellow]★ Takip:[/] " + "  │  ".join(items))
+
+    def _render_digest_snippet(self, snap: DashboardSnapshot) -> None:
+        snippet = self.query_one("#digest-snippet", Static)
+        if not snap.digest or not isinstance(snap.digest, dict):
+            snippet.update("")
+            return
+        title = snap.digest.get("title", "")
+        slot = str(snap.digest.get("slot", ""))
+        slot_map = {"morning": "Sabah", "noon": "Öğle", "evening": "Akşam"}
+        slot_lbl = slot_map.get(slot, slot.capitalize())
+        snippet.update(
+            f"[bold cyan]✦ Günün Bülteni ({slot_lbl}):[/bold cyan] {title}  "
+            f"[dim]([3] ile tam bülten)[/dim]"
+        )
+
+    def _resolve_color(self, var: str) -> str:
+        if var.startswith("$"):
+            value = getattr(self.app, "theme_variables", {}).get(var[1:])
+            if value:
+                return str(value)
+        return var
 
     def _render_economy(self, snap: DashboardSnapshot) -> None:
         strip = self.query_one("#economy-strip", Static)

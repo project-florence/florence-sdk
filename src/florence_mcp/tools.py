@@ -263,6 +263,15 @@ class ToolHandlers:
     def market_stats(self, ticker: str):
         return json_result(_jsonable(self.client.market.stats(ticker)))
 
+    @tool_handler
+    def market_digest(
+        self,
+        date: str | None = None,
+        slot: str | None = None,
+        at: str | None = None,
+    ):
+        return json_result(_jsonable(self.client.digest.get(date=date, slot=slot, at=at)))
+
     # ------------------------------------------------------------------
     # Economy (6)
     # ------------------------------------------------------------------

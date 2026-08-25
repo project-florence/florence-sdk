@@ -15,6 +15,7 @@ from .analysis_res import AnalysisResource
 from .auth_res import AuthResource
 from .base import BaseResource
 from .bots_res import BotsResource
+from .digest_res import DigestResource
 from .economy_res import EconomyResource
 from .export_res import ExportResource
 from .market_res import MarketResource
@@ -27,6 +28,7 @@ __all__ = [
     "AuthResource",
     "BaseResource",
     "BotsResource",
+    "DigestResource",
     "EconomyResource",
     "ExportResource",
     "MarketResource",
@@ -34,3 +36,4 @@ __all__ = [
     "PortfolioResource",
     "UserResource",
 ]
+

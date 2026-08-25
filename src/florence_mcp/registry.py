@@ -263,6 +263,11 @@ TOOLS: tuple[ToolSpec, ...] = (
         "market",
         "Tek ticker'in sayaclari (public). portfolio_stats ile karistirma.",
     ),
+    _spec(
+        "market_digest",
+        "market",
+        "Piyasa bülteni (morning/noon/evening slotları, tarih filtreli veya en güncel bülten).",
+    ),
     # ---- economy (6) ----------------------------------------------------
     _spec(
         "economy_gold_prices",

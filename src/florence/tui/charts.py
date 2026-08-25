@@ -38,6 +38,7 @@ from ccharts import Chart
 
 __all__ = [
     "SPARK_CHARS",
+    "candle_colors",
     "downsample",
     "normalize",
     "ohlc_rows",
@@ -280,6 +281,11 @@ def theme_ansi(color_var: str | None, theme: dict[str, str] | None) -> str | Non
     except ValueError:
         return None
     return f"\x1b[38;2;{r};{g};{b}m"
+
+
+def candle_colors(theme: dict[str, str] | None) -> tuple[str | None, str | None]:
+    """Mum grafigi renkleri: yesil (rise / $success) ve kirmizi (fall / $error)."""
+    return (theme_ansi("$success", theme), theme_ansi("$error", theme))
 
 
 def period_colors(

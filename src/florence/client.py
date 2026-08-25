@@ -108,6 +108,7 @@ class _BaseClient:
             AnalysisResource,
             AuthResource,
             BotsResource,
+            DigestResource,
             EconomyResource,
             ExportResource,
             MarketResource,
@@ -125,6 +126,7 @@ class _BaseClient:
         self.bots = BotsResource(self)
         self.export = ExportResource(self)
         self.misc = MiscResource(self)
+        self.digest = DigestResource(self)
 
     # ------------------------------------------------------------------
     # Yardimcilar

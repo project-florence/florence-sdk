@@ -467,6 +467,46 @@ def test_misc_maintenance_health():
 
 
 # ----------------------------------------------------------------------
+# digest_res
+# ----------------------------------------------------------------------
+def test_digest_resource_methods():
+    with respx.mock:
+        respx.get(f"{P}/digest").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "id": "d-1",
+                    "date": "2026-08-25",
+                    "slot": "morning",
+                    "title": "Sabah Özeti",
+                    "content": "Piyasalar güne pozitif başladı.",
+                    "sections": [{"heading": "BIST 100", "body": "Endeks 10.000 üzerinde."}],
+                },
+            )
+        )
+        respx.get(f"{P}/digest?date=2026-08-25&slot=morning").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "id": "d-1",
+                    "date": "2026-08-25",
+                    "slot": "morning",
+                    "title": "Sabah Özeti",
+                    "content": "Piyasalar güne pozitif başladı.",
+                    "sections": [{"heading": "BIST 100", "body": "Endeks 10.000 üzerinde."}],
+                },
+            )
+        )
+        client = FlorenceClient()
+        cur = client.digest.current()
+        assert cur["id"] == "d-1"
+        assert cur["slot"] == "morning"
+
+        by_slot = client.digest.by_date_slot("2026-08-25", "morning")
+        assert by_slot["title"] == "Sabah Özeti"
+
+
+# ----------------------------------------------------------------------
 # Asenkron resource kullanim ornekleri
 # ----------------------------------------------------------------------
 def test_async_resource_usage():
@@ -476,6 +516,8 @@ def test_async_resource_usage():
             return httpx.Response(200, json=[{"ticker": "THYAO"}])
         if path.endswith("/economy/gold-prices"):
             return httpx.Response(200, json=[{"Type": "gram-altin", "Buying": "40,25"}])
+        if path.endswith("/digest"):
+            return httpx.Response(200, json={"id": "d-async", "title": "Bülten"})
         if path.endswith("/auth/login"):
             return httpx.Response(200, json={"access_token": "at-9", "refresh_token": "rt-9", "token_type": "bearer"})
         return httpx.Response(404, json={"detail": "unmocked"})
@@ -484,7 +526,10 @@ def test_async_resource_usage():
         async with AsyncFlorenceClient(transport=httpx.MockTransport(handler)) as client:
             companies = await client.market.companies()
             gold = await client.economy.gold_prices()
+            digest = await client.digest.current()
             assert companies[0]["ticker"] == "THYAO"
             assert gold[0]["Buying"] == "40,25"
+            assert digest["id"] == "d-async"
 
     asyncio.run(run())
+

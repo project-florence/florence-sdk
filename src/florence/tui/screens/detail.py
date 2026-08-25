@@ -97,6 +97,7 @@ class DetailScreen(Screen[None]):
         padding: 0 1;
         text-style: bold;
         background: $panel;
+        border-bottom: solid $primary 40%;
     }
     #banner {
         display: none;
@@ -112,8 +113,9 @@ class DetailScreen(Screen[None]):
         height: auto;
     }
     #chart-title {
-        padding: 1 1 0 1;
+        padding: 0 1;
         text-style: bold;
+        color: $accent;
     }
     #detail-chart {
         height: 14;
@@ -148,11 +150,16 @@ class DetailScreen(Screen[None]):
         return self._chart_type
 
     def compose(self) -> ComposeResult:
+        header_text = (
+            f"[b]← [Esc] Geri[/b]  │  "
+            f"[bold cyan]{self.ticker}[/bold cyan] Detay  │  "
+            f"Piyasa durumu yükleniyor…"
+        )
         with Vertical(id="detail-root"):
-            yield Static("Piyasa durumu yükleniyor…", id="detail-status")
+            yield Static(header_text, id="detail-status")
             yield Static("", id="banner")
             yield Static("Yükleniyor…", id="detail-info")
-            yield Static(self._chart_title(), id="chart-title")
+            yield Static(self._chart_title_text(), id="chart-title")
             # show_prices/show_times etiketlerini ccharts cizer (T-C1).
             yield CChartLine(id="detail-chart", show_prices=True, show_times=True)
             yield Static("Yükleniyor…", id="detail-news")
@@ -171,7 +178,7 @@ class DetailScreen(Screen[None]):
     def on_detail_data_updated(self, message: DetailDataUpdated) -> None:
         self._last_snapshot = message.snapshot
         snap = message.snapshot
-        self._render_status(snap.market_status, snap.fetched_at)
+        self._render_header(snap.market_status, snap.fetched_at)
         self._render_banner(snap)
         self._render_info(snap)
         self._render_chart(snap)
@@ -188,11 +195,7 @@ class DetailScreen(Screen[None]):
     # Tus eylemleri
     # ------------------------------------------------------------------
     def action_set_period(self, period_key: str) -> None:
-        """``1``/``3``/``6``/``y`` -> 1mo/3mo/6mo/1y; aninda yeniden fetch.
-
-        Poll interval'i beklenmez — ``app.poll_now()`` exclusive worker ile
-        yeni period'da detay ceker (tasarim §5.4).
-        """
+        """``1``/``3``/``6``/``y`` -> 1mo/3mo/6mo/1y; aninda yeniden fetch."""
         period = keys.PERIODS.get(period_key)
         if period is None or period == self._period:
             return
@@ -200,26 +203,19 @@ class DetailScreen(Screen[None]):
         # Grafik once 'yukleniyor' durumuna gecer; veri gelince cizilir.
         self.query_one("#detail-chart", CChartLine).update_data([], chart_type=self._chart_type)
         self.query_one("#chart-title", Static).update(
-            f"{self._chart_title()} — yükleniyor…"
+            f"{self._chart_title()} — [dim]yükleniyor…[/dim]"
         )
         poll_now = getattr(self.app, "poll_now", None)
         if callable(poll_now):
             poll_now()
 
     def action_toggle_chart(self) -> None:
-        """``c`` — cizgi/mum arasi toggle (P6).
-
-        Grafik tipi ekran state'idir; period degismediginden veri yeniden
-        istenmez: ``_last_snapshot``'tan (``fetch_detail`` cache'i) aninda
-        yeniden cizilir — HTTP istek sayisi degismez (test edilir).
-        """
+        """``c`` — cizgi/mum arasi toggle (P6)."""
         self._chart_type = "candle" if self._chart_type == "line" else "line"
         if self._last_snapshot is not None:
             self._render_chart(self._last_snapshot)
         else:
-            # Veri henuz gelmedi — baslik tipi yansitir; veri gelince
-            # guncel tip ile cizilir.
-            self.query_one("#chart-title", Static).update(self._chart_title())
+            self.query_one("#chart-title", Static).update(self._chart_title_text())
 
     def action_go_back(self) -> None:
         """``esc`` — geldigi ekrana don (pano veya watchlist)."""
@@ -233,9 +229,32 @@ class DetailScreen(Screen[None]):
         chart = keys.CHART_LABELS.get(self._chart_type, self._chart_type)
         return f"GRAFİK ({label} · {chart})"
 
-    def _render_status(self, status: dict[str, Any] | None, fetched_at: datetime) -> None:
+    def _chart_controls_text(self) -> str:
+        """Görsel period ve grafik tipi sekmeleri."""
+        p_items = []
+        for key_char, p_val in [("1", "1mo"), ("3", "3mo"), ("6", "6mo"), ("y", "1y")]:
+            label = keys.PERIOD_LABELS.get(p_val, p_val)
+            if self._period == p_val:
+                p_items.append(f"[reverse][b] [{key_char}] {label} [/b][/reverse]")
+            else:
+                p_items.append(f"[dim][{key_char}] {label}[/dim]")
+        periods_str = " ".join(p_items)
+
+        if self._chart_type == "candle":
+            chart_str = "[dim][c] 📈 Çizgi[/dim]  [reverse][b] [c] 🕯️ Mum [/b][/reverse]"
+        else:
+            chart_str = "[reverse][b] [c] 📈 Çizgi [/b][/reverse]  [dim][c] 🕯️ Mum[/dim]"
+
+        return f"Dönem: {periods_str}   │   Tür: {chart_str}"
+
+    def _chart_title_text(self) -> str:
+        return f"{self._chart_title()}   │   {self._chart_controls_text()}"
+
+    def _render_header(self, status: dict[str, Any] | None, fetched_at: datetime) -> None:
         bar = self.query_one("#detail-status", Static)
-        bar.update(status_bar_text(status, fetched_at))
+        status_txt = status_bar_text(status, fetched_at)
+        bar.update(f"[b]← [Esc] Geri[/b]  │  [bold cyan]{self.ticker}[/bold cyan] Detay  │  {status_txt}")
+
 
     def _render_info(self, snap: DetailSnapshot) -> None:
         info = self.query_one("#detail-info", Static)
@@ -276,22 +295,19 @@ class DetailScreen(Screen[None]):
     def _render_chart(self, snap: DetailSnapshot) -> None:
         chart = self.query_one("#detail-chart", CChartLine)
         title = self.query_one("#chart-title", Static)
-        base = self._chart_title()
+        base = self._chart_title_text()
         history = snap.price_history
         if history is None:
             chart.update_data([], chart_type=self._chart_type)
             if snap.errors.get("price_history"):
-                title.update(f"{base} — veri alınamadı")
+                title.update(f"{base} — [red]veri alınamadı[/red]")
             else:
-                title.update(f"{base} — yükleniyor…")
+                title.update(f"{base} — [dim]yükleniyor…[/dim]")
             return
         if not history:
             chart.update_data([], chart_type=self._chart_type)
-            title.update(f"{base} — bu dönem için veri yok")
+            title.update(f"{base} — [dim]bu dönem için veri yok[/dim]")
             return
-        # OHLC satirlari dogrudan widget'a gider (high/low varsa birebir,
-        # yoksa adapter sentezler — P2); show_prices/show_times etiketleri
-        # ccharts tarafindan cizildiginden titelde min/son/max tekrari yok.
         chart.update_data(history, chart_type=self._chart_type)
         title.update(base)
 

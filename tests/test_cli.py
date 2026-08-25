@@ -782,3 +782,33 @@ def test_export_timeout_exit_1(monkeypatch: pytest.MonkeyPatch, cli_env: dict[st
     assert code == 1
     error = json.loads(err.splitlines()[-1])  # progress stderr'de; son satir JSON hata
     assert error["error"]["code"] == "timeout"
+
+
+def test_cli_digest_current_and_json(
+    monkeypatch: pytest.MonkeyPatch, cli_env: dict[str, str]
+) -> None:
+    """fl digest ve fl digest --json testi."""
+    with respx.mock:
+        respx.get(f"{P}/digest").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "id": "d-cli",
+                    "date": "2026-08-25",
+                    "slot": "morning",
+                    "title": "Sabah Özeti",
+                    "content": "Borsa güne güçlü alımlarla başladı.",
+                    "sections": [{"heading": "Öne Çıkanlar", "body": "Bankacılık endeksi primli."}],
+                },
+            )
+        )
+        code, out, err = run_cli(monkeypatch, ["digest", "--json"], env=cli_env)
+        assert code == 0
+        data = json.loads(out)
+        assert data["id"] == "d-cli"
+        assert data["slot"] == "morning"
+
+        code2, out2, err2 = run_cli(monkeypatch, ["digest"], env=cli_env)
+        assert code2 == 0
+        assert "Sabah Özeti" in out2 or "Borsa güne" in out2
+

@@ -41,7 +41,7 @@ from textual.widgets import ContentSwitcher, DataTable, Static
 from .. import keys
 from ..data import PortfolioSnapshot, delta_style, status_bar_text, tr_delta, tr_number
 from ..keys import KEY_BACK, KEY_CHART_TOGGLE, KEY_OPEN_DETAIL, PERIODS
-from ..widgets import CChartLine
+from ..widgets import CChartLine, NavBar
 
 __all__ = [
     "PortfolioDataFailed",
@@ -233,6 +233,7 @@ class PortfolioScreen(Screen[None]):
         performers = DataTable(id="performers-table", cursor_type="row", zebra_stripes=True)
         performers.add_columns("Ticker", "Getiri")
         with Vertical(id="portfolio-root"):
+            yield NavBar(active="portfolio")
             yield Static("Piyasa durumu yükleniyor…", id="portfolio-status")
             yield Static("", id="banner")
             yield Static("PORTFÖY", id="portfolio-title")

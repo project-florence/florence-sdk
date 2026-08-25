@@ -36,9 +36,12 @@ __all__ = [
     "DashboardSnapshot",
     "DataHub",
     "DetailSnapshot",
+    "DigestSnapshot",
+    "EconomySnapshot",
     "PortfolioPosition",
     "PortfolioSnapshot",
     "PortfolioSummary",
+    "StocksSnapshot",
     "WatchlistRow",
     "WatchlistSnapshot",
     "delta_style",
@@ -66,6 +69,7 @@ DEFAULT_TTL: dict[str, float] = {
     "company_info": 300.0,
     "news": 300.0,
     "price_history": 600.0,
+    "digest_current": 300.0,
     # Faz E (P7): portfoy listesi/ozet/performans hafif -> 1dk; gecmis agir -> 10dk.
     "portfolios": 60.0,
     "portfolio_snapshot": 60.0,
@@ -108,12 +112,7 @@ GOLD_LABELS: tuple[tuple[str, str], ...] = (
 # ----------------------------------------------------------------------
 @dataclass
 class DashboardSnapshot:
-    """Bir poll tick'inin pano icin toplu sonucu.
-
-    ``None`` alanlar: veri yok (hata veya henuz yuklenmedi). ``errors``
-    bolum bazli hata mesajlarini tasir; ``auth_sections`` token olmadigi
-    icin atlanan bolumleri listeler.
-    """
+    """Bir poll tick'inin pano icin toplu sonucu."""
 
     market_status: dict[str, Any] | None
     stats_top: list[dict[str, Any]] | None
@@ -122,8 +121,48 @@ class DashboardSnapshot:
     gold: list[dict[str, Any]] | None
     currency: dict[str, Any] | None
     fetched_at: datetime
+    popular: list[dict[str, Any]] | None = None
+    favorites_summary: list[dict[str, Any]] | None = None
+    digest: dict[str, Any] | None = None
     errors: dict[str, str] = field(default_factory=dict)
     auth_sections: tuple[str, ...] = ()
+
+
+@dataclass
+class DigestSnapshot:
+    """Bir poll tick'inin piyasa bülteni (digest) için toplu sonucu."""
+
+    market_status: dict[str, Any] | None
+    current_digest: dict[str, Any] | None
+    fetched_at: datetime
+    errors: dict[str, str] = field(default_factory=dict)
+    auth_sections: tuple[str, ...] = ()
+
+
+@dataclass
+class StocksSnapshot:
+    """Hisseler ekranı için toplu sonuç."""
+
+    market_status: dict[str, Any] | None
+    sort: str
+    companies: list[dict[str, Any]] | None
+    fetched_at: datetime
+    errors: dict[str, str] = field(default_factory=dict)
+    auth_sections: tuple[str, ...] = ()
+
+
+@dataclass
+class EconomySnapshot:
+    """Ekonomi ekranı için toplu sonuç."""
+
+    market_status: dict[str, Any] | None
+    gold: list[dict[str, Any]] | None
+    currency: dict[str, Any] | None
+    metals: dict[str, Any] | None
+    fetched_at: datetime
+    errors: dict[str, str] = field(default_factory=dict)
+    auth_sections: tuple[str, ...] = ()
+
 
 
 @dataclass
@@ -649,28 +688,53 @@ class DataHub:
         result = _portfolio_positions(data)
         return self._set_cached(key, result)
 
+    async def get_current_digest(self) -> dict[str, Any] | None:
+        """``/digest`` — en güncel piyasa bülteni (JWT; 300s TTL)."""
+        cached = self._get_cached("digest_current")
+        if cached is not self._CACHE_MISS:
+            return cached
+        data = await self._client.digest.current()
+        result = data if isinstance(data, dict) else {}
+        return self._set_cached("digest_current", result, ttl=300.0)
+
+    async def get_favorites_summary(self, limit: int = 10) -> list[dict[str, Any]] | None:
+        """Favori hisselerin özet bilgilerini çeker (JWT; 60s TTL)."""
+        favs = await self.get_favorites()
+        if not favs:
+            return []
+        tickers = ",".join(favs[:limit])
+        key = f"favs_summary:{tickers}"
+        cached = self._get_cached(key)
+        if cached is not self._CACHE_MISS:
+            return cached
+        data = await self._client.market.companies_summary(tickers=tickers, limit=limit)
+        if isinstance(data, dict):
+            inner = data.get("data")
+            rows = inner if isinstance(inner, list) else []
+        else:
+            rows = data if isinstance(data, list) else []
+        return self._set_cached(key, rows)
+
     # ------------------------------------------------------------------
     # Pano toplu fetch'i (poll worker tek cagri yapar)
     # ------------------------------------------------------------------
     async def fetch_dashboard(self) -> DashboardSnapshot:
-        """Pano icin tum bolumleri tek tick'te toplar.
-
-        - ``market/status`` her zaman cekilir (public).
-        - Auth gerektiren bolumler yalnizca oturum varsa cekilir; yoksa
-          ``auth_sections``'ta listelenir (ekran uyari gosterir).
-        - Bolum bazli hatalar ``errors``'a yazilir, diger bolumler devam eder.
-        - ``RateLimitError`` YAYILIR — app interval uzatmasi ve banner icin
-          yakalar (kalan istekler atilir; rate limit'te istek yapilmaz).
-        """
+        """Pano icin tum bolumleri tek tick'te toplar."""
         errors: dict[str, str] = {}
         authed = self.is_authenticated()
         status = await self.get_market_status()
         sections: dict[str, Any] = {}
         if authed:
-            # Bolumler PARALEL cekilir: yavas bir bolum (orn. companies/summary
-            # tam hesaplama) tum panoyu bloklamasin. RateLimitError gather ile
-            # yayilir (tasarim: 429'da istek yapilmaz).
-            names = ("stats_top", "gainers", "losers", "gold", "currency")
+            names = (
+                "stats_top",
+                "gainers",
+                "losers",
+                "gold",
+                "currency",
+                "popular",
+                "favorites_summary",
+                "digest",
+            )
             results = await asyncio.gather(
                 self._fetch_section("stats_top", self.get_stats_top(), errors),
                 self._fetch_section(
@@ -681,6 +745,13 @@ class DataHub:
                 ),
                 self._fetch_section("gold", self.get_gold_prices(), errors),
                 self._fetch_section("currency", self.get_currency(), errors),
+                self._fetch_section(
+                    "popular", self.get_companies_summary("popular"), errors
+                ),
+                self._fetch_section(
+                    "favorites_summary", self.get_favorites_summary(), errors
+                ),
+                self._fetch_section("digest", self.get_current_digest(), errors),
             )
             sections = dict(zip(names, results, strict=True))
         return DashboardSnapshot(
@@ -691,8 +762,66 @@ class DataHub:
             gold=sections.get("gold"),
             currency=sections.get("currency"),
             fetched_at=self._clock(),
+            popular=sections.get("popular"),
+            favorites_summary=sections.get("favorites_summary"),
+            digest=sections.get("digest"),
             errors=errors,
             auth_sections=() if authed else AUTH_REQUIRED_SECTIONS,
+        )
+
+    async def fetch_digest(self) -> DigestSnapshot:
+        """Piyasa bülteni ekranı için tek tick'te bülten çeker."""
+        errors: dict[str, str] = {}
+        authed = self.is_authenticated()
+        status = await self.get_market_status()
+        digest = None
+        if authed:
+            digest = await self._fetch_section("digest", self.get_current_digest(), errors)
+        return DigestSnapshot(
+            market_status=status,
+            current_digest=digest,
+            fetched_at=self._clock(),
+            errors=errors,
+            auth_sections=() if authed else ("digest",),
+        )
+
+    async def fetch_stocks(self, sort: str = "popular") -> StocksSnapshot:
+        """Hisseler ekranı için sıralı şirket listesi çeker."""
+        errors: dict[str, str] = {}
+        authed = self.is_authenticated()
+        status = await self.get_market_status()
+        companies = None
+        if authed:
+            companies = await self._fetch_section(
+                "companies", self.get_companies_summary(sort, limit=30), errors
+            )
+        return StocksSnapshot(
+            market_status=status,
+            sort=sort,
+            companies=companies,
+            fetched_at=self._clock(),
+            errors=errors,
+            auth_sections=() if authed else ("companies",),
+        )
+
+    async def fetch_economy(self) -> EconomySnapshot:
+        """Ekonomi ekranı için altın ve döviz verilerini çeker."""
+        errors: dict[str, str] = {}
+        authed = self.is_authenticated()
+        status = await self.get_market_status()
+        gold = None
+        currency = None
+        if authed:
+            gold = await self._fetch_section("gold", self.get_gold_prices(), errors)
+            currency = await self._fetch_section("currency", self.get_currency(), errors)
+        return EconomySnapshot(
+            market_status=status,
+            gold=gold,
+            currency=currency,
+            metals=None,
+            fetched_at=self._clock(),
+            errors=errors,
+            auth_sections=() if authed else ("gold", "currency"),
         )
 
     async def _fetch_section(

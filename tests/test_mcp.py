@@ -233,6 +233,26 @@ def test_tool_company_info_md_text():
     assert "Turkish Airlines" in result.content[0].text
 
 
+def test_mcp_market_digest():
+    with respx.mock:
+        respx.get(f"{PREFIX}/digest").mock(
+            return_value=httpx.Response(
+                200,
+                json={"id": "d-mcp", "title": "MCP Bülteni", "slot": "noon"},
+            )
+        )
+        server = _make_server()
+
+        async def _call():
+            async with Client(server) as client:
+                return await client.call_tool("market_digest", {})
+
+        result = _run(_call())
+    assert result.is_error is False
+    assert result.structured_content["id"] == "d-mcp"
+
+
+
 def test_tool_confirm_gate_blocks_and_allows():
     with respx.mock:
         respx.delete(f"{PREFIX}/portfolios/1").mock(
@@ -391,7 +411,7 @@ def test_server_list_tools_smoke():
     tools = _run(_list())
     names = {tool.name for tool in tools}
     assert len(tools) >= 80
-    assert len(tools) == len(TOOLS) == 98
+    assert len(tools) == len(TOOLS) == 99
     assert names == {spec.name for spec in TOOLS}
     # Temsilci isimler (CLI uyumlu, Bölüm 2.6).
     for expected in (
@@ -403,6 +423,7 @@ def test_server_list_tools_smoke():
         "auth_status",
         "helper_news_digest",
         "helper_market_pulse",
+        "market_digest",
     ):
         assert expected in names
 
@@ -419,7 +440,7 @@ def test_server_disabled_groups(monkeypatch):
     tools = _run(_list())
     names = {tool.name for tool in tools}
     assert not any(n.startswith("export_") for n in names)
-    assert len(names) == len(enabled_specs({"export"})) == 93
+    assert len(names) == len(enabled_specs({"export"})) == 94
 
 
 def test_server_instructions_mention_rate_limits():
@@ -435,10 +456,10 @@ def test_server_instructions_mention_rate_limits():
 # ---------------------------------------------------------------------------
 
 
-def test_registry_has_98_tools_and_invariants():
+def test_registry_has_99_tools_and_invariants():
     names = [spec.name for spec in TOOLS]
-    assert len(names) == 98
-    assert len(set(names)) == 98  # benzersiz
+    assert len(names) == 99
+    assert len(set(names)) == 99  # benzersiz
     for spec in TOOLS:
         assert spec.group in GROUPS
     # Helper tool'lari "helpers" grubunda ve salt-okuma.

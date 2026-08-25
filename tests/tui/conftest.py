@@ -217,6 +217,22 @@ def make_handler(
         if "/news/" in path:
             rows = MOCK_NEWS if news is None else news
             return httpx.Response(200, json=rows)
+        if path.endswith("/digest"):
+            return httpx.Response(
+                200,
+                json={
+                    "title": "Günün Piyasa Özeti",
+                    "date": "2026-08-25",
+                    "slot": "morning",
+                    "content": "BIST 100 güne pozitif başlangıç yaptı.",
+                    "sections": [
+                        {
+                            "heading": "Öne Çıkan Gelişmeler",
+                            "body": "Havacılık ve teknoloji hisselerinde güçlü alımlar izlendi.",
+                        }
+                    ],
+                },
+            )
         return httpx.Response(404, json={"detail": "unmocked"})
 
     return handler

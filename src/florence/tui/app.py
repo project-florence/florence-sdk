@@ -35,7 +35,10 @@ from . import keys
 from .data import DataHub, error_message
 from .screens.dashboard import DashboardDataFailed, DashboardDataUpdated, DashboardScreen
 from .screens.detail import DetailDataFailed, DetailDataUpdated, DetailScreen
+from .screens.digest import DigestDataFailed, DigestDataUpdated, DigestScreen
+from .screens.economy import EconomyDataFailed, EconomyDataUpdated, EconomyScreen
 from .screens.portfolio import PortfolioDataFailed, PortfolioDataUpdated, PortfolioScreen
+from .screens.stocks import StocksDataFailed, StocksDataUpdated, StocksScreen
 from .screens.watchlist import WatchlistDataFailed, WatchlistDataUpdated, WatchlistScreen
 
 __all__ = ["FlorenceTUI", "HelpModal", "main"]
@@ -64,7 +67,6 @@ def _valid_chart(value: Any) -> str:
     return keys.DEFAULT_CHART
 
 
-
 class HelpModal(ModalScreen[None]):
     """Yardim paneli: tus haritasi + surum (offline, veri istegi yok)."""
 
@@ -79,7 +81,7 @@ class HelpModal(ModalScreen[None]):
         align: center middle;
     }
     #help-box {
-        width: 62;
+        width: 68;
         height: auto;
         border: round $primary;
         background: $surface;
@@ -91,11 +93,10 @@ class HelpModal(ModalScreen[None]):
         lines = [
             "[b]fl tui — tuş haritası[/]",
             "",
-            "[b]q[/] Çıkış      [b]1[/] Pano      [b]2[/] İzleme listesi      [b]4[/] Portföy",
-            "[b]r[/] Yenile     [b]h[/] Bu yardım",
-            "[b]j[/]/[b]k[/] Satır  [b]enter[/] Detay / Portföy seç  [b]g[/]/[b]l[/] Yükselen/Düşen",
-            "[b]1[/]/[b]3[/]/[b]6[/]/[b]y[/] Grafik dönemi (detay + portföy)",
-            "[b]c[/] Çizgi/Mum (detay + portföy)      [b]esc[/] Geri",
+            "[b]q[/] Çıkış      [b]1[/] Pano       [b]2[/] İzleme    [b]3[/] Bülten",
+            "[b]4[/] Portföy    [b]5[/] Hisseler   [b]6[/] Ekonomi   [b]r[/] Yenile",
+            "[b]j[/]/[b]k[/] Satır   [b]enter[/] Detay   [b]h[/] Yardım   [b]esc[/] Geri",
+            "[b]1[/]/[b]3[/]/[b]6[/]/[b]y[/] Grafik dönemi   [b]c[/] Çizgi/Mum grafiği",
             "",
             f"Sürüm: {__version__}",
             f"API: {self.app.data.base_url}",  # type: ignore[attr-defined]
@@ -107,7 +108,7 @@ class HelpModal(ModalScreen[None]):
 
 
 class FlorenceTUI(App[None]):
-    """``fl tui`` uygulamasi (pano + izleme listesi + portfoy + detay/grafik)."""
+    """``fl tui`` uygulamasi (pano + izleme + bülten + portföy + hisseler + ekonomi + detay/grafik)."""
 
     TITLE = "Florence · fl tui"
     SUB_TITLE = "BIST canlı özet"
@@ -122,16 +123,22 @@ class FlorenceTUI(App[None]):
         Binding(keys.KEY_QUIT, "quit", "Çıkış"),
         Binding(keys.KEY_DASHBOARD, "go_dashboard", "Pano"),
         Binding(keys.KEY_WATCHLIST, "go_watchlist", "İzleme", show=False),
+        Binding(keys.KEY_DIGEST, "go_digest", "Bülten", show=False),
         Binding(keys.KEY_PORTFOLIO, "go_portfolio", "Portföy", show=False),
+        Binding(keys.KEY_STOCKS, "go_stocks", "Hisseler", show=False),
+        Binding(keys.KEY_ECONOMY, "go_economy", "Ekonomi", show=False),
         Binding(keys.KEY_REFRESH, "refresh", "Yenile"),
         Binding(keys.KEY_HELP, "help", "Yardım"),
     ]
 
-    #: Ekran kaydi — watchlist/portfoy switch ile acilir; detay push ile (K3).
+    #: Ekran kaydi
     SCREENS = {
         "dashboard": DashboardScreen,
         "watchlist": WatchlistScreen,
+        "digest": DigestScreen,
         "portfolio": PortfolioScreen,
+        "stocks": StocksScreen,
+        "economy": EconomyScreen,
     }
 
     def __init__(
@@ -235,6 +242,18 @@ class FlorenceTUI(App[None]):
                 snapshot = await self.data.fetch_watchlist()
                 screen.post_message(WatchlistDataUpdated(snapshot))
                 self.data.register_success()
+            elif isinstance(screen, DigestScreen):
+                snapshot = await self.data.fetch_digest()
+                screen.post_message(DigestDataUpdated(snapshot))
+                self.data.register_success()
+            elif isinstance(screen, StocksScreen):
+                snapshot = await self.data.fetch_stocks(sort=screen.sort)
+                screen.post_message(StocksDataUpdated(snapshot))
+                self.data.register_success()
+            elif isinstance(screen, EconomyScreen):
+                snapshot = await self.data.fetch_economy()
+                screen.post_message(EconomyDataUpdated(snapshot))
+                self.data.register_success()
             elif isinstance(screen, DetailScreen):
                 snapshot = await self.data.fetch_detail(screen.ticker, screen.period)
                 screen.post_message(DetailDataUpdated(snapshot))
@@ -260,6 +279,12 @@ class FlorenceTUI(App[None]):
             screen.post_message(DashboardDataFailed(message, retry_after))
         elif isinstance(screen, WatchlistScreen):
             screen.post_message(WatchlistDataFailed(message, retry_after))
+        elif isinstance(screen, DigestScreen):
+            screen.post_message(DigestDataFailed(message, retry_after))
+        elif isinstance(screen, StocksScreen):
+            screen.post_message(StocksDataFailed(message, retry_after))
+        elif isinstance(screen, EconomyScreen):
+            screen.post_message(EconomyDataFailed(message, retry_after))
         elif isinstance(screen, DetailScreen):
             screen.post_message(DetailDataFailed(message, retry_after))
         elif isinstance(screen, PortfolioScreen):
@@ -275,27 +300,26 @@ class FlorenceTUI(App[None]):
     # ------------------------------------------------------------------
     # Global eylemler
     # ------------------------------------------------------------------
-    # Not: "q" -> "quit" base App.action_quit'e gider (exit). Ctrl+q da base'de var.
     def action_go_dashboard(self) -> None:
         self.switch_screen("dashboard")
 
     def action_go_watchlist(self) -> None:
         self.switch_screen("watchlist")
 
-    def action_go_portfolio(self) -> None:
-        """``4`` — portfoy ekranina gec (SWITCH, push degil — Faz E, P7).
+    def action_go_digest(self) -> None:
+        self.switch_screen("digest")
 
-        ``esc`` ile geri donus icin geldigimiz EKRAN NESNESI saklanir
-        (``screen.name`` Textual'da None olabiliyor — isime guvenilmez;
-        ``PortfolioScreen.action_go_back`` o nesneyle switch eder).
-        ``1``/``2``/``4`` arasi serbest gezinme: portfoy ekraninda ``2``
-        watchlist'e gecer; ``1`` portfoy ekraninda PERIOD tusudur (detayla
-        ayni davranis).
-        """
+    def action_go_portfolio(self) -> None:
         current = self.screen
         if current is not None and not isinstance(current, PortfolioScreen):
             self._screen_before_portfolio = current
         self.switch_screen("portfolio")
+
+    def action_go_stocks(self) -> None:
+        self.switch_screen("stocks")
+
+    def action_go_economy(self) -> None:
+        self.switch_screen("economy")
 
     def action_refresh(self) -> None:
         self.poll_now()

@@ -30,10 +30,17 @@ from textual.screen import Screen
 from textual.widgets import ContentSwitcher, DataTable, Static
 
 from ..charts import ohlc_rows, period_colors, period_return, render_line, single_row
-from ..data import WatchlistSnapshot, delta_style, status_bar_text, tr_delta, tr_number
+from ..data import (
+    WatchlistSnapshot,
+    delta_style,
+    status_bar_text,
+    tr_delta,
+    tr_number,
+)
 from ..keys import KEY_OPEN_DETAIL
+from ..widgets.nav import NavBar
 
-__all__ = ["WatchlistDataFailed", "WatchlistDataUpdated", "WatchlistScreen"]
+__all__ = ["WatchlistDataFailed", "WatchlistDataUpdated", "WatchlistScreen", "trend_cell"]
 
 
 # ----------------------------------------------------------------------
@@ -153,6 +160,7 @@ class WatchlistScreen(Screen[None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="watchlist-root"):
+            yield NavBar(active="watchlist")
             yield Static("Piyasa durumu yükleniyor…", id="watchlist-status")
             yield Static("", id="banner")
             yield Static("İZLEME LİSTESİ (favoriler)", id="watchlist-title")

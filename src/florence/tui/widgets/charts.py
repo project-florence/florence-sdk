@@ -112,8 +112,11 @@ class CChartBase(Static):
         kendi defaultunu (yesil/kirmizi) kullanir (fallback, P4).
         """
         theme = getattr(self.app, "theme_variables", None) if self.is_mounted else None
-        return_value = charts.period_return([row.get("close") for row in self._rows])
-        self._rise, self._fall = charts.period_colors(return_value, theme)
+        if self._chart_type == "candle":
+            self._rise, self._fall = charts.candle_colors(theme)
+        else:
+            return_value = charts.period_return([row.get("close") for row in self._rows])
+            self._rise, self._fall = charts.period_colors(return_value, theme)
 
     # ------------------------------------------------------------------
     # Render
@@ -130,16 +133,23 @@ class CChartBase(Static):
             return
         payload = charts.ohlc_rows(self._rows)
         width, height = self._chart_dimensions()
-        kwargs: dict[str, Any] = {
-            "single_color": True,
-            "rise": self._rise,
-            "fall": self._fall,
-            "show_prices": self._show_prices,
-            "show_times": self._show_times,
-        }
         if self._chart_type == "candle":
+            kwargs: dict[str, Any] = {
+                "single_color": False,
+                "rise": self._rise,
+                "fall": self._fall,
+                "show_prices": self._show_prices,
+                "show_times": self._show_times,
+            }
             out = charts.render_candle(payload, width, height, **kwargs)
         else:
+            kwargs = {
+                "single_color": True,
+                "rise": self._rise,
+                "fall": self._fall,
+                "show_prices": self._show_prices,
+                "show_times": self._show_times,
+            }
             out = charts.render_line(payload, width, height, **kwargs)
         # ccharts ciktisi ANSI ile islenmis — Text.from_ansi renkleri korur
         # (Textual Static ANSI'yi kendisi cozmez).
