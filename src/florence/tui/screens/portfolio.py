@@ -114,7 +114,6 @@ class PortfolioScreen(Screen[None]):
     """PORTFÖY: secim + ozet + grafik + performers (tasarim §2.4 v2)."""
 
     BINDINGS = [
-        Binding("y", "set_period('y')", "1 Yıl", show=False),
         Binding(KEY_CHART_TOGGLE, "toggle_chart", "Çizgi/Mum"),
         # priority=True: odakli DataTable 'enter' tusunu yutar — ekran
         # binding'i once calismali (watchlist deseni, Textual 8.2.8).

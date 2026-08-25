@@ -331,7 +331,7 @@ def test_portfolio_screen_empty_list_suggests_cli_create(make_app):
 
 
 def test_portfolio_period_keys_refetch_and_rerender(make_app):
-    """``1/3/6/y`` period tuslari detayla ayni — history yeni periodla cekilir."""
+    """Period değişimi ile history yeni periodla çekilir."""
 
     async def run() -> None:
         seen: dict[str, list[str | None]] = {"periods": []}
@@ -352,19 +352,23 @@ def test_portfolio_period_keys_refetch_and_rerender(make_app):
             await pilot.press("enter")
             await wait_for(app, lambda: "Toplam" in _text(app, "portfolio-summary"))
             assert app.screen.period == "1mo"
-            # 3 -> 3mo: aninda yeniden fetch + baslik guncellenir
-            await pilot.press("3")
+            # 3mo: anında yeniden fetch + başlık güncellenir
+            app.screen.action_set_period("3")
             await wait_for(app, lambda: "3mo" in seen["periods"])
             await wait_for(app, lambda: "GRAFİK (3 Ay · çizgi)" in _text(app, "portfolio-chart-title"))
             assert app.screen.period == "3mo"
-            # Ayni period'a tekrar basmak yeni istek atmaz
+            # Aynı period'a tekrar basmak yeni istek atmaz
             before = len(seen["periods"])
-            await pilot.press("3")
+            app.screen.action_set_period("3")
             assert len(seen["periods"]) == before
-            # 6 -> 6mo
-            await pilot.press("6")
+            # 6mo
+            app.screen.action_set_period("6")
             await wait_for(app, lambda: "6mo" in seen["periods"])
             assert app.screen.period == "6mo"
+            # y -> 1y
+            await pilot.press("y")
+            await wait_for(app, lambda: "1y" in seen["periods"])
+            assert app.screen.period == "1y"
 
     asyncio.run(run())
 

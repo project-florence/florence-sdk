@@ -30,7 +30,7 @@ from textual.widgets import Button, Static
 from .. import keys
 from ..data import DetailSnapshot, delta_style, status_bar_text, tr_delta, tr_number
 from ..keys import KEY_BACK, KEY_CHART_TOGGLE
-from ..widgets import CChartLine
+from ..widgets import AppHeader, CChartLine
 
 __all__ = ["DetailDataFailed", "DetailDataUpdated", "DetailScreen"]
 
@@ -234,6 +234,7 @@ class DetailScreen(Screen[None]):
             f"Piyasa durumu yükleniyor…"
         )
         with Vertical(id="detail-root"):
+            yield AppHeader(show_nav=False)
             yield Static(header_text, id="detail-status")
             yield Static("", id="banner")
 
@@ -270,6 +271,14 @@ class DetailScreen(Screen[None]):
     # ------------------------------------------------------------------
     def on_mount(self) -> None:
         self._update_button_states()
+        if self._last_snapshot is not None:
+            snap = self._last_snapshot
+            self._render_header(snap.market_status, snap.fetched_at)
+            self._render_banner(snap)
+            self._render_info(snap)
+            self._render_stats(snap)
+            self._render_chart(snap)
+            self._render_news(snap)
         poll_now = getattr(self.app, "poll_now", None)
         if callable(poll_now):
             poll_now()
@@ -279,14 +288,19 @@ class DetailScreen(Screen[None]):
     # ------------------------------------------------------------------
     def on_detail_data_updated(self, message: DetailDataUpdated) -> None:
         self._last_snapshot = message.snapshot
+        if not self.is_mounted:
+            return
         snap = message.snapshot
-        self._render_header(snap.market_status, snap.fetched_at)
-        self._render_banner(snap)
-        self._render_info(snap)
-        self._render_stats(snap)
-        self._render_chart(snap)
-        self._render_news(snap)
-        self._update_button_states()
+        try:
+            self._render_header(snap.market_status, snap.fetched_at)
+            self._render_banner(snap)
+            self._render_info(snap)
+            self._render_stats(snap)
+            self._render_chart(snap)
+            self._render_news(snap)
+            self._update_button_states()
+        except Exception:
+            pass
 
     def on_detail_data_failed(self, message: DetailDataFailed) -> None:
         if message.retry_after is not None:

@@ -183,7 +183,10 @@ def test_tui_app_header_on_all_screens(make_app):
 
             # 7. Detay
             app.open_detail("THYAO")
-            await wait_for(app, lambda: isinstance(app.screen, DetailScreen))
+            await wait_for(
+                app,
+                lambda: isinstance(app.screen, DetailScreen) and len(app.screen.query(AppHeader)) > 0,
+            )
             assert app.screen.query_one(AppHeader) is not None
             assert app.screen.query_one("#banner-art", Static) is not None
 
